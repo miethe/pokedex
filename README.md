@@ -83,17 +83,34 @@ The application follows a decoupled architecture:
     *   Sets up networking between containers.
     *   Manages volumes for persistent data (e.g., Redis data).
     
-+-----------------+ +---------------------+ +----------------------+ +------------------------+
-| User's Browser | <--> | Nginx Container | <--> | Backend API Container| <--> | Redis Container |
-| (HTML/CSS/JS) | | (Frontend Files | | (FastAPI / Python) | | (Cache) |
-+-----------------+ | + Reverse Proxy) | +----------------------+ +------------------------+
-| | |
-| Serves / | | Fetches/Caches
-| Proxies /api/* | v
-+---------------------+ +------------------------+
-| External PokeAPI |
-| (pokeapi.co) |
-+------------------------+
+<pre><code>```mermaid
+graph LR
+    subgraph Client
+        A[User's Browser<br/>(HTML/CSS/JS)]
+    end
+
+    subgraph Frontend
+        B[Nginx Container<br/>(Frontend Files + Reverse Proxy)]
+    end
+
+    subgraph Backend
+        C[Backend API Container<br/>(FastAPI / Python)]
+    end
+
+    subgraph Cache
+        D[Redis Container<br/>(Cache)]
+    end
+
+    subgraph External
+        E[External PokeAPI<br/>(pokeapi.co)]
+    end
+
+    A <--> B
+    B <--> C
+    C <--> D
+    C --> E
+```
+</code></pre>
 
 ## Technology Stack
 
