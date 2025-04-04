@@ -211,10 +211,289 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Modal Handling ---
 
+    function renderPokemonDetail(data) {
+        modalContent.innerHTML = ''; // Clear previous content/loading indicator
+
+        // Main container for the new layout
+        const detailView = document.createElement('div');
+        detailView.classList.add('pokemon-detail-view');
+
+        // --- Top Sprite Section ---
+        const topSpriteSection = document.createElement('div');
+        topSpriteSection.classList.add('detail-top-sprite-section');
+
+        const mainSpriteContainer = document.createElement('div');
+        mainSpriteContainer.classList.add('main-sprite-container');
+        const mainSprite = document.createElement('img');
+        // Prefer official artwork, fallback to front_default
+        mainSprite.src = data.sprites?.official_artwork || data.sprites?.front_default || 'placeholder.png'; // Add a placeholder img if none found
+        mainSprite.alt = data.name;
+        mainSprite.classList.add('main-sprite');
+        mainSpriteContainer.appendChild(mainSprite);
+
+        const spriteGallery = document.createElement('div');
+        spriteGallery.classList.add('sprite-gallery');
+        const gallerySprites = [
+            { url: data.sprites.front_default, title: "Default" },
+            { url: data.sprites.back_default, title: "Back Default" },
+            { url: data.sprites.front_shiny, title: "Shiny" },
+            { url: data.sprites.back_shiny, title: "Back Shiny" },
+            // Add female sprites if needed and available
+        ];
+        gallerySprites.forEach(sprite => {
+            if (sprite.url) {
+                const img = document.createElement('img');
+                img.src = sprite.url;
+                img.alt = `${data.name} ${sprite.title} Sprite`;
+                img.title = sprite.title;
+                // Add click handler to potentially change the main sprite? (Optional feature)
+                // img.onclick = () => mainSprite.src = sprite.url;
+                spriteGallery.appendChild(img);
+            }
+        });
+
+        topSpriteSection.appendChild(mainSpriteContainer);
+        topSpriteSection.appendChild(spriteGallery);
+        detailView.appendChild(topSpriteSection);
+
+
+        // --- Main Content Grid ---
+        const mainGrid = document.createElement('div');
+        mainGrid.classList.add('detail-main-grid');
+
+
+        // --- Types Card ---
+        const typesCard = document.createElement('div');
+        typesCard.classList.add('info-card', 'types-card');
+        typesCard.innerHTML = `
+            <h3>Types</h3>
+            <div class="card-content card-content-types">
+                ${data.types.map(t => `<span class="type type-${t.name}">${t.name}</span>`).join(' ')}
+            </div>
+        `;
+        mainGrid.appendChild(typesCard);
+
+        // --- Physical Attributes Card ---
+        const physicalCard = document.createElement('div');
+        physicalCard.classList.add('info-card', 'physical-card');
+        physicalCard.innerHTML = `
+            <h3>Physical Attributes</h3>
+            <div class="card-content">
+                <p><strong>Height:</strong> ${data.height / 10} m</p>
+                <p><strong>Weight:</strong> ${data.weight / 10} kg</p>
+                <p><strong>Shape:</strong> ${data.shape || 'N/A'}</p>
+                <p><strong>Habitat:</strong> ${data.habitat || 'N/A'}</p>
+            </div>
+        `;
+        mainGrid.appendChild(physicalCard);
+
+         // --- Abilities Card ---
+        const abilitiesCard = document.createElement('div');
+        abilitiesCard.classList.add('info-card', 'abilities-card');
+        abilitiesCard.innerHTML = `
+            <h3>Abilities</h3>
+            <div class="card-content">
+                <ul>
+                    ${data.abilities.map(a => `<li>${a.name.replace('-', ' ')} ${a.is_hidden ? '(Hidden)' : ''}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+        mainGrid.appendChild(abilitiesCard);
+
+        // --- Base Stats Card ---
+        const statsCard = document.createElement('div');
+        statsCard.classList.add('info-card', 'stats-card');
+        let statsHtml = '<h3>Base Stats</h3><div class="card-content"><ul class="stats-list-text">';
+        data.stats.forEach(stat => {
+            // Format stat name (e.g., 'special-attack' -> 'Sp. attack')
+             let statName = stat.name.replace('-', '. ');
+             if(statName.includes('.')) {
+                statName = statName.split('.').map(word => word.charAt(0).toUpperCase() + '.').join('');
+             } else {
+                statName = statName.charAt(0).toUpperCase() + statName.slice(1);
+             }
+
+            statsHtml += `<li><span>${statName}</span><span>${stat.base_stat}</span></li>`;
+        });
+        statsHtml += '</ul></div>';
+        statsCard.innerHTML = statsHtml;
+        mainGrid.appendChild(statsCard);
+
+        // --- Breeding Info Card ---
+        const breedingCard = document.createElement('div');
+        breedingCard.classList.add('info-card', 'breeding-card');
+         // Gender calculation (same as before)
+        let genderRatio = 'Genderless';
+        if (data.gender_rate >= 0) { // Ensure rate is valid
+            if (data.gender_rate === 0) genderRatio = '100% Male';
+            else if (data.gender_rate === 8) genderRatio = '100% Female';
+            else {
+                const femaleChance = (data.gender_rate / 8) * 100;
+                genderRatio = `${100 - femaleChance}% Male, ${femaleChance}% Female`;
+            }
+        }
+        // Calculate approximate hatch time (requires hatch_counter from backend)
+        // const hatchTime = data.hatch_counter ? `~${(data.hatch_counter + 1) * 255} steps` : 'N/A'; // Example calculation
+        breedingCard.innerHTML = `
+            <h3>Breeding Info</h3>
+            <div class="card-content">
+                <p><strong>Gender:</strong> ${genderRatio}</p>
+                <p><strong>Egg Groups:</strong> ${data.egg_groups.map(eg => eg.name).join(', ') || 'N/A'}</p>
+                <!-- Add Hatch Time when data is available -->
+                <!-- <p><strong>Hatch Time:</strong> ${hatchTime}</p> -->
+                <p><strong>Hatch Time:</strong> N/A</p> <!-- Placeholder -->
+            </div>
+        `;
+        mainGrid.appendChild(breedingCard);
+
+        // --- Species Info Card ---
+        const speciesCard = document.createElement('div');
+        speciesCard.classList.add('info-card', 'species-card');
+        speciesCard.innerHTML = `
+            <h3>Species Info</h3>
+            <div class="card-content">
+                <p><strong>Genus:</strong> ${data.genus || 'Unknown Genus'}</p>
+                <!-- Add Catch Rate when data is available -->
+                <!-- <p><strong>Catch Rate:</strong> ${data.catch_rate ?? 'N/A'}</p> -->
+                <p><strong>Catch Rate:</strong> N/A</p> <!-- Placeholder -->
+                <!-- Add Base Happiness when data is available -->
+                <!-- <p><strong>Base Happiness:</strong> ${data.base_happiness ?? 'N/A'}</p> -->
+                <p><strong>Base Happiness:</strong> N/A</p> <!-- Placeholder -->
+                <p><strong>Growth Rate:</strong> ${data.growth_rate_name ? data.growth_rate_name.replace('-', ' ') : 'N/A'}</p>
+                <p><strong>Base Exp:</strong> ${data.base_experience || 'N/A'}</p>
+            </div>
+        `;
+        mainGrid.appendChild(speciesCard);
+
+        // --- Classifications Card ---
+        const classificationCard = document.createElement('div');
+        classificationCard.classList.add('info-card', 'classification-card');
+        // Determine evolves from text (requires evolves_from_species from backend)
+        // const evolvesFrom = data.evolves_from_species ? data.evolves_from_species.name : 'N/A';
+        classificationCard.innerHTML = `
+            <h3>Classifications</h3>
+            <div class="card-content">
+                <p><strong>Legendary:</strong> ${data.is_legendary ? 'Yes' : 'No'}</p>
+                <p><strong>Mythical:</strong> ${data.is_mythical ? 'Yes' : 'No'}</p>
+                <!-- Add Baby status when data is available -->
+                <!-- <p><strong>Baby:</strong> ${data.is_baby ? 'Yes' : 'No'}</p> -->
+                <p><strong>Baby:</strong> N/A</p> <!-- Placeholder -->
+                <!-- Add Evolves From when data is available -->
+                <!-- <p><strong>Evolves From:</strong> ${evolvesFrom}</p> -->
+                 <p><strong>Evolves From:</strong> N/A</p> <!-- Placeholder -->
+            </div>
+        `;
+        mainGrid.appendChild(classificationCard);
+
+        detailView.appendChild(mainGrid); // Add grid to the view
+
+        // --- Description Card ---
+        const descriptionCard = document.createElement('div');
+        descriptionCard.classList.add('info-card', 'description-card');
+        const flavorTextEntry = data.flavor_text_entries?.find(entry => entry.language?.name === 'en');
+        descriptionCard.innerHTML = `
+            <h3>Description</h3>
+            <div class="card-content">
+                <p>${flavorTextEntry ? flavorTextEntry.flavor_text.replace(/[\n\f]/g, ' ') : 'No description available.'}</p>
+            </div>
+        `;
+        detailView.appendChild(descriptionCard);
+
+        // --- Evolution Chain Card ---
+        const evolutionCard = document.createElement('div');
+        evolutionCard.classList.add('info-card', 'evolution-card');
+        // Placeholder content, will be filled by renderEvolutionChain
+        evolutionCard.innerHTML = `<h3>Evolution Chain</h3><div class="card-content evolution-chain-container"><p>Loading evolution chain...</p></div>`;
+        detailView.appendChild(evolutionCard);
+
+
+        modalContent.appendChild(detailView); // Add the whole new structure to the modal
+
+        // Return the container element for the evolution chain rendering
+        return evolutionCard.querySelector('.evolution-chain-container');
+    }
+
+    // Updated renderEvolutionChain for the new layout
+    function renderEvolutionChain(chainData, containerElement) {
+        console.log("Rendering evolution chain:", chainData);
+        containerElement.innerHTML = ''; // Clear loading text
+        const chainWrapper = document.createElement('div');
+        chainWrapper.classList.add('evolution-chain-wrapper'); // Use flexbox
+
+        function processChain(chainLink, parentElement) {
+            const pokemonName = chainLink.species.name;
+            const pokemonId = chainLink.species.url.split('/').filter(Boolean).pop();
+
+            const stageDiv = document.createElement('div');
+            stageDiv.classList.add('evolution-stage');
+
+            const link = document.createElement('a');
+            link.href = '#';
+            link.dataset.id = pokemonId;
+            link.classList.add('evolution-link');
+
+            const img = document.createElement('img');
+            // Use official artwork if available for chain? Or stick to sprites? Let's use sprites for consistency.
+             img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemonId}.png`;
+            // Alternative: Official Artwork
+            // img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonId}.png`;
+            img.alt = pokemonName;
+            img.classList.add('evolution-sprite-small'); // New class for smaller sprites
+            img.loading = 'lazy';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = pokemonName;
+
+            link.appendChild(img);
+            link.appendChild(nameSpan);
+            stageDiv.appendChild(link);
+
+             // Append arrow only if it's not the first stage in this sub-chain
+            if (parentElement !== chainWrapper) {
+                 const arrowSpan = document.createElement('span');
+                 arrowSpan.classList.add('evolution-arrow');
+                 arrowSpan.textContent = '→';
+                 parentElement.appendChild(arrowSpan);
+            }
+
+            parentElement.appendChild(stageDiv);
+
+
+            // Recursively process next links
+            if (chainLink.evolves_to && chainLink.evolves_to.length > 0) {
+                 // If branching evolution, create a sub-container? For now, just append linearly.
+                 // More complex branching might need different layout logic.
+                chainLink.evolves_to.forEach(nextLink => processChain(nextLink, parentElement)); // Pass same parent for linear display
+            }
+        }
+
+        processChain(chainData, chainWrapper); // Start processing
+        containerElement.appendChild(chainWrapper);
+
+        // Add event listener (no change needed here, still listens on containerElement)
+        containerElement.addEventListener('click', async (event) => {
+             const link = event.target.closest('.evolution-link');
+            if (link && link.dataset.id) {
+                event.preventDefault();
+                const targetId = link.dataset.id;
+                console.log(`Evolution link clicked: ${targetId}`);
+                showDetailLoading(true);
+                // Pass the result of renderPokemonDetail back to the recursive call
+                const evoContainer = await openPokemonDetailModal(targetId);
+                 // This assumes openPokemonDetailModal now returns the evolution container element
+                 // We might need to adjust openPokemonDetailModal slightly if not.
+                 // For simplicity now, we rely on openPokemonDetailModal handling the full render including the chain fetch.
+            }
+        });
+    }
+
+    // Modified openPokemonDetailModal to pass container to renderEvolutionChain
     async function openPokemonDetailModal(pokemonIdOrName) {
         showDetailLoading(true);
-        modal.style.display = 'block'; // Show modal structure
-        modalContent.innerHTML = ''; // Clear previous content immediately
+        modal.style.display = 'block';
+        modalContent.innerHTML = ''; // Clear previous content
+
+        let evolutionContainerElement = null; // To store the element where the chain should be rendered
 
         try {
             const pokemonData = await fetchData(`${API_BASE_URL}/pokemon/${pokemonIdOrName}`);
@@ -222,236 +501,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`Pokémon "${pokemonIdOrName}" not found.`);
             }
             console.log("Fetched detail data:", pokemonData);
-            renderPokemonDetail(pokemonData);
+            // **renderPokemonDetail now returns the evolution container element**
+            evolutionContainerElement = renderPokemonDetail(pokemonData);
 
-            // Now fetch evolution chain data using the URL from pokemonData
-            if (pokemonData.evolution_chain_url) {
-                // Add a placeholder for evolution chain while fetching
-                const evoPlaceholder = document.createElement('div');
-                evoPlaceholder.id = 'evolution-chain-placeholder';
-                evoPlaceholder.innerHTML = '<h3>Evolution Chain</h3><p>Loading evolution chain...</p>';
-                modalContent.appendChild(evoPlaceholder); // Append to the end of details
-
+            if (pokemonData.evolution_chain_url && evolutionContainerElement) {
                 console.log(`Fetching evolution chain from: ${pokemonData.evolution_chain_url}`);
                 try {
                     const evolutionData = await fetchData(pokemonData.evolution_chain_url);
-                    if (evolutionData) {
+                    if (evolutionData && evolutionData.chain) {
                         console.log("Fetched evolution data:", evolutionData);
-                        renderEvolutionChain(evolutionData.chain, evoPlaceholder); // Render into the placeholder
+                        renderEvolutionChain(evolutionData.chain, evolutionContainerElement); // Render into the specific container
                     } else {
-                        evoPlaceholder.innerHTML = '<h3>Evolution Chain</h3><p>Could not load evolution data.</p>';
+                         if (evolutionContainerElement) evolutionContainerElement.innerHTML = '<p>Could not load evolution data.</p>';
                     }
                 } catch (evoError) {
                      console.error("Error fetching evolution chain:", evoError);
-                     evoPlaceholder.innerHTML = `<h3>Evolution Chain</h3><p>Error loading evolution data: ${evoError.message}</p>`;
+                      if (evolutionContainerElement) evolutionContainerElement.innerHTML = `<p>Error loading evolution data: ${evoError.message}</p>`;
                 }
             } else {
-                 const noEvoDiv = document.createElement('div');
-                 noEvoDiv.innerHTML = '<h3>Evolution Chain</h3><p>No evolution chain data available.</p>';
-                 modalContent.appendChild(noEvoDiv);
+                 if (evolutionContainerElement) evolutionContainerElement.innerHTML = '<p>No evolution chain data available.</p>';
+                 else console.warn("Evolution container element not found after rendering details.");
             }
 
         } catch (error) {
             console.error("Error opening detail modal:", error);
             modalContent.innerHTML = `<p class="error">Could not load details for ${pokemonIdOrName}. ${error.message}</p>`;
+             evolutionContainerElement = null; // Ensure it's null on error
         } finally {
-            showDetailLoading(false); // Hide loading indicator regardless of success/failure
+            showDetailLoading(false);
         }
-    }
-
-    function renderPokemonDetail(data) {
-        modalContent.innerHTML = ''; // Clear previous content/loading indicator
-
-        // --- Basic Info Header ---
-        const header = document.createElement('div');
-        header.classList.add('detail-header');
-        header.innerHTML = `
-            <h2 class="detail-name">${data.name} (#${String(data.id).padStart(4, '0')})</h2>
-            <p class="detail-genus">${data.genus || 'Unknown Genus'}</p>
-            <div class="detail-types">
-                ${data.types.map(t => `<span class="type type-${t.name}">${t.name}</span>`).join(' ')}
-            </div>
-        `;
-        modalContent.appendChild(header);
-
-        // --- Main Content Grid (Sprites, Physical, etc.) ---
-        const mainGrid = document.createElement('div');
-        mainGrid.classList.add('detail-main-grid');
-
-        // --- Sprites Section ---
-        const spritesSection = document.createElement('div');
-        spritesSection.classList.add('detail-sprites');
-        spritesSection.innerHTML = `
-            <h3>Sprites</h3>
-            <div class="sprite-gallery">
-                ${data.sprites.official_artwork ? `<img src="${data.sprites.official_artwork}" alt="${data.name} Official Artwork" title="Official Artwork">` : ''}
-                ${data.sprites.front_default ? `<img src="${data.sprites.front_default}" alt="${data.name} Default Sprite" title="Default">` : ''}
-                ${data.sprites.front_shiny ? `<img src="${data.sprites.front_shiny}" alt="${data.name} Shiny Sprite" title="Shiny">` : ''}
-                ${data.sprites.back_default ? `<img src="${data.sprites.back_default}" alt="${data.name} Back Sprite" title="Back Default">` : ''}
-                ${data.sprites.back_shiny ? `<img src="${data.sprites.back_shiny}" alt="${data.name} Back Shiny Sprite" title="Back Shiny">` : ''}
-                ${!data.sprites.official_artwork && !data.sprites.front_default ? '<p>No sprites available.</p>' : ''}
-            </div>
-        `;
-        mainGrid.appendChild(spritesSection);
-
-        // --- Physical Attributes Section ---
-        const physicalSection = document.createElement('div');
-        physicalSection.classList.add('detail-physical');
-        physicalSection.innerHTML = `
-            <h3>Physical Attributes</h3>
-            <p><strong>Height:</strong> ${data.height / 10} m</p> <!-- Convert decimeters to meters -->
-            <p><strong>Weight:</strong> ${data.weight / 10} kg</p> <!-- Convert hectograms to kilograms -->
-            <p><strong>Base Exp:</strong> ${data.base_experience || 'N/A'}</p>
-            <p><strong>Growth Rate:</strong> ${data.growth_rate_name ? data.growth_rate_name.replace('-', ' ') : 'N/A'}</p>
-            <p><strong>Shape:</strong> ${data.shape || 'N/A'}</p>
-            <p><strong>Habitat:</strong> ${data.habitat || 'N/A'}</p>
-        `;
-        mainGrid.appendChild(physicalSection);
-
-        modalContent.appendChild(mainGrid); // Add grid to modal
-
-        // --- Description Section ---
-        const descriptionSection = document.createElement('div');
-        descriptionSection.classList.add('detail-description');
-        // Find a recent English flavor text (e.g., from a recent game version if possible)
-        const flavorTextEntry = data.flavor_text_entries?.find(entry => entry.language?.name === 'en'); // Simple find first english
-        // More robust: Find one from a specific version if needed
-        // const flavorTextEntry = data.flavor_text_entries?.find(entry => entry.language?.name === 'en' && entry.version?.name === 'scarlet');
-        descriptionSection.innerHTML = `
-            <h3>Description</h3>
-            <p>${flavorTextEntry ? flavorTextEntry.flavor_text.replace(/[\n\f]/g, ' ') : 'No description available.'}</p>
-        `;
-        modalContent.appendChild(descriptionSection);
-
-
-        // --- Abilities Section ---
-        const abilitiesSection = document.createElement('div');
-        abilitiesSection.classList.add('detail-abilities');
-        abilitiesSection.innerHTML = `
-            <h3>Abilities</h3>
-            <ul>
-                ${data.abilities.map(a => `<li>${a.name.replace('-', ' ')}</li>`).join('')}
-            </ul>
-        `;
-        modalContent.appendChild(abilitiesSection);
-
-        // --- Base Stats Section ---
-        const statsSection = document.createElement('div');
-        statsSection.classList.add('detail-stats');
-        statsSection.innerHTML = `<h3>Base Stats</h3>`;
-        const statsList = document.createElement('ul');
-        statsList.classList.add('stats-list');
-        const maxStatValue = 255; // Max possible base stat value for scaling bars
-        data.stats.forEach(stat => {
-            const percentage = (stat.base_stat / maxStatValue) * 100;
-            const statItem = document.createElement('li');
-            statItem.innerHTML = `
-                <span class="stat-name">${stat.name.replace('-', ' ')}:</span>
-                <span class="stat-value">${stat.base_stat}</span>
-                <div class="stat-bar-container">
-                    <div class="stat-bar" style="width: ${percentage}%;"></div>
-                </div>
-            `;
-            statsList.appendChild(statItem);
-        });
-        statsSection.appendChild(statsList);
-        modalContent.appendChild(statsSection);
-
-        // --- Breeding & Classification Section ---
-        const breedingSection = document.createElement('div');
-        breedingSection.classList.add('detail-breeding');
-        // Gender calculation (based on rate: -1 = genderless, 0 = 100% male, 8 = 100% female, 1-7 = ratio)
-        let genderRatio = 'Genderless';
-        if (data.gender_rate > 0 && data.gender_rate < 8) {
-            const femaleChance = (data.gender_rate / 8) * 100;
-            const maleChance = 100 - femaleChance;
-            genderRatio = `${maleChance}% Male, ${femaleChance}% Female`;
-        } else if (data.gender_rate === 0) {
-            genderRatio = '100% Male';
-        } else if (data.gender_rate === 8) {
-            genderRatio = '100% Female';
-        }
-
-        breedingSection.innerHTML = `
-            <h3>Breeding & Classification</h3>
-            <p><strong>Gender Ratio:</strong> ${genderRatio}</p>
-            <p><strong>Egg Groups:</strong> ${data.egg_groups.map(eg => eg.name).join(', ') || 'N/A'}</p>
-            <p><strong>Classification:</strong> ${data.is_legendary ? 'Legendary' : data.is_mythical ? 'Mythical' : 'Normal'} Pokémon</p>
-        `;
-        modalContent.appendChild(breedingSection);
-
-        // Evolution Chain placeholder will be populated later
-    }
-
-    function renderEvolutionChain(chainData, containerElement) {
-        console.log("Rendering evolution chain:", chainData);
-        containerElement.innerHTML = '<h3>Evolution Chain</h3>'; // Clear loading text
-        const chainList = document.createElement('ul');
-        chainList.classList.add('evolution-chain');
-
-        function processChain(chainLink, level = 0) {
-            const listItem = document.createElement('li');
-            listItem.style.paddingLeft = `${level * 20}px`; // Indent based on level
-
-            const pokemonName = chainLink.species.name;
-            const pokemonId = chainLink.species.url.split('/').filter(Boolean).pop(); // Extract ID from URL
-
-            const link = document.createElement('a');
-            link.href = '#'; // Prevent navigation
-            link.textContent = `${pokemonName} (#${pokemonId})`;
-            link.dataset.id = pokemonId; // Store ID for potential click
-            link.classList.add('evolution-link');
-
-            // Add basic sprite - fetch it on the fly (simple example)
-            const img = document.createElement('img');
-            img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemonId}.png`;
-            img.alt = pokemonName;
-            img.classList.add('evolution-sprite');
-            img.loading = 'lazy'; // Lazy load images
-
-            listItem.appendChild(img);
-            listItem.appendChild(link);
-
-
-            // Basic evolution trigger text (can be expanded with API details if needed)
-            if (chainLink.evolution_details && chainLink.evolution_details.length > 0) {
-                const details = chainLink.evolution_details[0]; // Usually just one entry
-                let triggerText = '';
-                 if (details.min_level) triggerText += `Lv. ${details.min_level}`;
-                 else if (details.item) triggerText += `Use ${details.item.name.replace('-', ' ')}`;
-                 else if (details.trigger) triggerText += `(${details.trigger.name.replace('-', ' ')})`;
-                 else triggerText = '(Special)';
-
-                 const triggerSpan = document.createElement('span');
-                 triggerSpan.textContent = ` → ${triggerText}`;
-                 triggerSpan.classList.add('evolution-trigger');
-                 listItem.appendChild(triggerSpan);
-            }
-
-            chainList.appendChild(listItem);
-
-            // Recursively process next links in the chain
-            if (chainLink.evolves_to && chainLink.evolves_to.length > 0) {
-                chainLink.evolves_to.forEach(nextLink => processChain(nextLink, level + 1));
-            }
-        }
-
-        processChain(chainData); // Start processing from the root of the chain
-        containerElement.appendChild(chainList);
-
-        // Add event listener for clicking evolution links within the modal
-        chainList.addEventListener('click', async (event) => {
-            if (event.target.classList.contains('evolution-link')) {
-                event.preventDefault();
-                const targetId = event.target.dataset.id;
-                if (targetId) {
-                    console.log(`Evolution link clicked: ${targetId}`);
-                    // Close current modal immediately? Or replace content? Let's replace.
-                    showDetailLoading(true); // Show loading indicator again
-                    await openPokemonDetailModal(targetId); // Fetch and render the new Pokémon
-                }
-            }
-        });
+         // Return the container element (might be null if initial render failed)
+         // This isn't strictly needed anymore if the click just re-runs openPokemonDetailModal fully
+         // return evolutionContainerElement;
     }
 
     function closePokemonDetailModal() {

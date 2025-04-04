@@ -201,3 +201,240 @@ h1 {
 .type-dark { background-color: #705746; }
 .type-steel { background-color: #B7B7CE; }
 .type-fairy { background-color: #D685AD; }
+
+.pokemon-detail-view {
+    padding: 15px;
+}
+
+/* --- Top Sprite Section --- */
+.detail-top-sprite-section {
+    text-align: center;
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.main-sprite-container {
+    display: inline-block; /* Allows centering */
+    background-color: #f8f8f8; /* Light background */
+    border-radius: 50%; /* Circular background */
+    padding: 15px;
+    border: 1px solid #ddd;
+    margin-bottom: 15px;
+    max-width: 200px; /* Limit size */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.main-sprite {
+    display: block;
+    width: 100%;
+    max-width: 180px; /* Max sprite size */
+    height: auto;
+    image-rendering: pixelated; /* Keep sprites crisp */
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+.sprite-gallery {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+}
+
+.sprite-gallery img {
+    width: 50px;
+    height: 50px;
+    border: 1px solid #eee;
+    background-color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+.sprite-gallery img:hover {
+    transform: scale(1.1);
+    border-color: #ccc;
+}
+
+
+/* --- Main Grid for Info Cards --- */
+.detail-main-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Responsive columns */
+    gap: 15px; /* Spacing between cards */
+    margin-bottom: 20px;
+}
+
+/* --- Generic Info Card Styling --- */
+.info-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    overflow: hidden; /* Ensure padding contains content */
+}
+
+.info-card h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.info-card .card-content {
+    font-size: 0.9em;
+    color: #555;
+}
+
+.info-card .card-content p,
+.info-card .card-content ul {
+    margin: 0 0 8px 0; /* Spacing for paragraphs/lists */
+    line-height: 1.5;
+}
+.info-card .card-content ul {
+     list-style: none;
+     padding-left: 0;
+}
+.info-card .card-content li {
+    margin-bottom: 5px;
+}
+
+/* Specific Card Content Styling */
+.card-content-types .type {
+    margin-right: 5px;
+    margin-bottom: 5px; /* Allow wrapping */
+    padding: 4px 10px;
+    font-size: 0.9em;
+}
+
+/* Stats Card Specific Styling (Text List) */
+.stats-list-text {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.stats-list-text li {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed #f0f0f0;
+    font-size: 0.9em;
+}
+.stats-list-text li span:first-child {
+    color: #333;
+    text-transform: capitalize;
+    margin-right: 10px;
+}
+.stats-list-text li span:last-child {
+    font-weight: bold;
+    color: #444;
+}
+.stats-list-text li:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+
+/* Description Card Specific Styling */
+.description-card {
+    grid-column: 1 / -1; /* Make description span full width if needed */
+    margin-bottom: 20px;
+}
+.description-card p {
+     line-height: 1.6;
+}
+
+/* Evolution Card Specific Styling */
+.evolution-card {
+     grid-column: 1 / -1; /* Make evolution span full width */
+}
+
+.evolution-chain-container {
+    /* Container within the card */
+    padding-top: 10px;
+}
+
+.evolution-chain-wrapper {
+    display: flex;
+    align-items: center; /* Vertically align items */
+    justify-content: center; /* Center items horizontally */
+    flex-wrap: wrap; /* Allow wrapping */
+    gap: 15px; /* Space between stages/arrows */
+}
+
+.evolution-stage {
+    text-align: center;
+}
+
+.evolution-link {
+    display: flex;
+    flex-direction: column; /* Stack image and text */
+    align-items: center;
+    text-decoration: none;
+    color: #337ab7;
+    transition: color 0.2s ease;
+}
+.evolution-link:hover {
+    color: #23527c;
+}
+
+.evolution-sprite-small {
+    width: 60px; /* Adjust size as needed */
+    height: 60px;
+    margin-bottom: 5px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+.evolution-arrow {
+    font-size: 1.5em;
+    color: #888;
+    margin: 0 10px;
+}
+
+
+/* Minor Adjustments for Modal Content */
+.modal-content h2 { /* Original "Pokemon Details" heading */
+    display: none; /* Hide the generic heading, we use card headings now */
+}
+
+/* Responsive adjustments (Example) */
+@media (max-width: 768px) {
+    .detail-main-grid {
+        /* Switch to 2 columns on smaller tablets */
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    .main-sprite-container {
+        max-width: 150px;
+    }
+     .sprite-gallery img {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+@media (max-width: 480px) {
+    .detail-main-grid {
+        /* Switch to 1 column on small phones */
+        grid-template-columns: 1fr;
+    }
+    .main-sprite-container {
+        max-width: 120px;
+    }
+    .evolution-chain-wrapper {
+        flex-direction: column; /* Stack evolution vertically */
+        gap: 20px;
+    }
+     .evolution-arrow {
+        transform: rotate(90deg); /* Point arrow down */
+    }
+}

@@ -5,7 +5,7 @@ from typing import List, Optional
 from functools import lru_cache # Consider using Redis cache instead of in-memory lru_cache if needed across instances
 
 from .pokeapi_client import fetch_pokeapi
-from .cache import get_cache, set_cache
+from .cache import get_cache, set_cache, clear_cache
 from .config import settings
 from .models import PokemonSummary, PokemonDetail, PokemonType, Generation, PokemonTypeFilter, PokemonAbility, PokemonStat
 
@@ -111,62 +111,134 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
                 return PokemonDetail(**cached_detail) # Rehydrate from cached dict
             except Exception as e:
                 logger.error(f"Error validating cached Pokemon detail data for '{pokemon_id_or_name}', refreshing from PokeAPI. Error: {e}", exc_info=True)
+                # Clear potentially bad cache entry before refreshing
+                await clear_cache(cache_key)
         force_refresh = True # Fallback to refresh
 
     if force_refresh:
         logger.info(f"Fetching fresh Pokémon detail data for '{pokemon_id_or_name}' from PokeAPI...")
-        pokemon_data = await fetch_pokeapi(f"/pokemon/{pokemon_id_or_name}")
+        # Ensure identifier is lowercase string for API call if it's a name
+        api_identifier = str(pokemon_id_or_name).lower()
+        pokemon_data = await fetch_pokeapi(f"/pokemon/{api_identifier}")
+        
+        # CRITICAL CHECK: If pokemon_data itself is None, we cannot proceed.
         if not pokemon_data:
-            logger.warning(f"Could not fetch Pokemon data for '{pokemon_id_or_name}' from PokeAPI.")
-            return None
+            logger.warning(f"Could not fetch Pokemon data for '{api_identifier}' from PokeAPI.")
+            return None # Cannot create detail without base data
 
-        species_url = pokemon_data.get('species', {}).get('url')
-        if not species_url:
-            logger.warning(f"Species URL not found for Pokémon '{pokemon_id_or_name}'.")
-            return None
+        # Use .get() with defaults for potentially missing keys in pokemon_data
+        species_info = pokemon_data.get('species', {}) # Default to empty dict if 'species' key is missing
+        species_url = species_info.get('url') if species_info else None # Get url only if species_info is not empty dict
+        
+        species_data = None
+        if species_url:
+            species_data = await fetch_pokeapi(species_url)
+        else:
+             logger.warning(f"Species URL not found or missing for Pokémon '{api_identifier}'. Some details might be unavailable.")
 
-        species_data = await fetch_pokeapi(species_url)
-        if not species_data:
+        # Default species_data to empty dict if fetch failed or URL was missing
+        if species_data is None:
+            species_data = {} # Allows subsequent .get calls to work safely
             logger.warning(f"Could not fetch species data for '{pokemon_id_or_name}' from PokeAPI at {species_url}.")
-            return None
 
-        evolution_chain_url = species_data # Pass species_data to validator to extract from there
         generation_name = species_data.get('generation', {}).get('name')
         generation_id = _generation_name_to_id(generation_name) if generation_name else None
 
-        pokemon_detail = PokemonDetail(
-            id=pokemon_data['id'],
-            name=pokemon_data['name'],
-            genus=species_data.get('genera', []), # Pass genera list for validator
-            generation_id=generation_id,
-            types=[PokemonType(name=t['type']['name']) for t in pokemon_data.get('types', [])],
-            abilities=[PokemonAbility(name=ability['ability']['name'], url=ability['ability']['url']) for ability in pokemon_data.get('abilities', [])],
-            height=pokemon_data.get('height'),
-            weight=pokemon_data.get('weight'),
-            base_experience=pokemon_data.get('base_experience'),
-            stats=[PokemonStat(name=stat['stat']['name'], base_stat=stat['base_stat']) for stat in pokemon_data.get('stats', [])],
-            sprites=pokemon_data.get('sprites'), # Pass full sprites dict for validator to handle nested official artwork
-            species_url=species_url,
-            evolution_chain_url=evolution_chain_url, # Pass species data to validator for extraction
-            flavor_text_entries=species_data.get('flavor_text_entries', []), # Pass full list for validator
-            gender_rate=species_data.get('gender_rate'),
-            egg_groups=species_data.get('egg_groups', []),
-            habitat=species_data.get('habitat', {}).get('name'), # Habitat is nested
-            is_legendary=species_data.get('is_legendary', False),
-            is_mythical=species_data.get('is_mythical', False),
-            shape=species_data.get('shape', {}).get('name'), # Shape is nested
-            growth_rate_name=species_data.get('growth_rate', {}).get('name') # Growth rate is nested
-        )
+        # Ensure lists default to empty lists if key is missing
+        types_list = pokemon_data.get('types', [])
+        abilities_list = pokemon_data.get('abilities', [])
+        stats_list = pokemon_data.get('stats', [])
+        egg_groups_list = species_data.get('egg_groups', [])
+        evolves_from_species_dict = species_data.get('evolves_from_species', [])
+        flavor_text_list = species_data.get('flavor_text_entries', [])
+        genera_list = species_data.get('genera', []) # For genus extraction validator
 
-        if pokemon_detail:
-            if await set_cache(cache_key, pokemon_detail.model_dump()): # Serialize to JSON-compatible dict
-                logger.info(f"Pokemon detail data for '{pokemon_id_or_name}' cached successfully.")
+        # Handle potentially None numerical values with default 0 (or adjust default as needed)
+        height_val = pokemon_data.get('height')
+        weight_val = pokemon_data.get('weight')
+        base_exp_val = pokemon_data.get('base_experience')
+        gender_rate_val = species_data.get('gender_rate') # Can be -1 for genderless
+        capture_rate_val = species_data.get('capture_rate')
+        base_happiness_val = species_data.get('base_happiness')
+        
+        # Handle potentially missing OR null nested dictionaries before getting 'name'
+        habitat_info = species_data.get('habitat') # Get the habitat value (could be dict or None)
+        habitat_name = habitat_info.get('name') if habitat_info else None # Only call .get('name') if habitat_info is a dict
+        
+        shape_info = species_data.get('shape') # Get the shape value
+        shape_name = shape_info.get('name') if shape_info else None # Only call .get('name') if shape_info is a dict
+
+        growth_rate_info = species_data.get('growth_rate') # Get the growth_rate value
+        growth_rate_name_val = growth_rate_info.get('name') if growth_rate_info else None # Only call .get('name') if growth_rate_info is a dict
+
+        # Handle boolean values with default False
+        is_legendary_val = species_data.get('is_legendary', False)
+        is_mythical_val = species_data.get('is_mythical', False)
+        is_baby_val = species_data.get('is_baby', False)
+        has_gender_differences_val = species_data.get('has_gender_differences', False)
+
+        # Get sprites dict, defaulting to empty dict if missing
+        sprites_dict = pokemon_data.get('sprites', {})
+
+        try:
+            pokemon_detail = PokemonDetail(
+                # Required fields (should exist if pokemon_data is valid)
+                id=pokemon_data['id'], # Assume id exists if pokemon_data is valid
+                name=pokemon_data['name'], # Assume name exists
+
+                # Fields processed with defaults or safe gets
+                genus=genera_list, # Pass list to validator
+                generation_id=generation_id,
+                types=[PokemonType(name=t.get('type', {}).get('name', 'unknown')) for t in types_list], # Safely access nested type name
+                abilities=[
+                    PokemonAbility(
+                        name=a.get('ability', {}).get('name', 'unknown'),
+                        url=a.get('ability', {}).get('url', '')
+                    ) for a in abilities_list
+                ], # Safely access nested ability info
+                height=height_val if height_val is not None else 0, # Default 0 if None
+                weight=weight_val if weight_val is not None else 0, # Default 0 if None
+                base_experience=base_exp_val if base_exp_val is not None else 0, # Default 0 if None
+                stats=[
+                    PokemonStat(
+                        name=s.get('stat', {}).get('name', 'unknown'),
+                        base_stat=s.get('base_stat', 0) # Default 0 if missing
+                    ) for s in stats_list
+                 ], # Safely access nested stat info
+                sprites=sprites_dict, # Pass (potentially empty) dict to validator
+                species_url=species_url or "", # Default to empty string if None
+                evolution_chain_url=species_data, # Pass dict to validator (validator handles missing 'evolution_chain')
+                flavor_text_entries=flavor_text_list, # Pass potentially empty list
+                gender_rate=gender_rate_val if gender_rate_val is not None else -1, # Default -1 if None
+                capture_rate=capture_rate_val if gender_rate_val is not None else -1, # Default -1 if None
+                base_happiness=base_happiness_val if gender_rate_val is not None else -1, # Default -1 if None
+                egg_groups=egg_groups_list, # Pass potentially empty list
+                evolves_from_species=evolves_from_species_dict, # Pass potentially empty list
+                habitat=habitat_name, # Pass None or the name (model field is Optional)
+                is_legendary=is_legendary_val,
+                is_mythical=is_mythical_val,
+                is_baby=is_baby_val,
+                has_gender_differences=has_gender_differences_val,
+                shape=shape_name, # Pass None or the name (model field is Optional)
+                growth_rate_name=growth_rate_name_val # Pass None or the name (model field is Optional)
+            )
+
+            # Cache the successfully created object
+            if await set_cache(cache_key, pokemon_detail.model_dump()):
+                logger.info(f"Pokemon detail data for '{api_identifier}' cached successfully.")
             else:
-                logger.warning(f"Failed to cache Pokemon detail data for '{pokemon_id_or_name}'.")
+                logger.warning(f"Failed to cache Pokemon detail data for '{api_identifier}'.")
             return pokemon_detail
-        else:
-            logger.error(f"Failed to fetch and process Pokemon detail data for '{pokemon_id_or_name}' from PokeAPI.")
-            return None
+
+        except Exception as e: # Catch Pydantic validation errors or others during creation
+            logger.error(f"Failed to create PokemonDetail object for '{api_identifier}' even after fetching data. Error: {e}", exc_info=True)
+            # Log the data that caused the failure? Be careful with PII/size.
+            # logger.debug(f"Pokemon Data: {pokemon_data}")
+            # logger.debug(f"Species Data: {species_data}")
+            return None # Return None if creation fails despite fetching
+        
+    # This path should ideally not be reached if logic is correct
+    logger.error(f"Reached end of get_pokemon_detail_data for '{pokemon_id_or_name}' without returning data.")
     return None # Should not reach here, but for type safety
 
 

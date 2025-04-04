@@ -1,7 +1,10 @@
 # backend/app/models.py
+import logging
 
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 class PokemonType(BaseModel):
     """Represents a Pokémon type."""
@@ -63,32 +66,65 @@ class PokemonDetail(BaseModel):
     sprites: PokemonSprites = Field(..., description="Pokémon sprites")
     species_url: str = Field(..., description="URL to species data for more info (description, evolution chain)")
     evolution_chain_url: str = Field(..., description="URL to evolution chain data") # Extracted from species
+    evolves_from_species: Optional[dict] = Field(..., description="The Pokémon species that evolves into this Pokemon_species") # Extracted from species
     flavor_text_entries: List[dict] = Field(..., description="List of flavor text entries (descriptions)") # From species
     gender_rate: int = Field(..., description="Gender rate (for breeding info)") # From species
     egg_groups: List[dict] = Field(..., description="List of egg groups") # From species
     habitat: Optional[str] = Field(None, description="Habitat name, if any") # From species
+    is_baby: Optional[bool] = Field(False, description="Whether it's a baby Pokémon") # From species
     is_legendary: bool = Field(False, description="Whether it's a legendary Pokémon") # From species
     is_mythical: bool = Field(False, description="Whether it's a mythical Pokémon") # From species
+    has_gender_differences: bool = Field(False, description="Whether Pokémon has visual gender differences") # From species
     shape: Optional[str] = Field(None, description="Pokémon shape name") # From species
     growth_rate_name: Optional[str] = Field(None, description="Growth rate name") # From species
-
+    capture_rate: Optional[int] = Field(None, description="The base capture rate; up to 255") # From species
+    base_happiness: Optional[int] = Field(None, description="The happiness when caught by a normal Pokéball; up to 255") # From species
 
     @validator("genus", pre=True, allow_reuse=True)
     def extract_genus(cls, value):
         """Extract genus from species flavor text entries."""
-        for flavor_text in value:
-            if flavor_text.get("language", {}).get("name") == "en":
-                return flavor_text.get("genus", "Unknown Genus") # Default if not found
-        return "Unknown Genus" # Fallback if no English genus found
+        # Handle cached value
+        if isinstance(value, str):
+            return value
+        if not isinstance(value, list):
+             # Log or handle the unexpected type. Return a default.
+             logger.warning(f"Unexpected type for genus validator input: {type(value)}. Expected list.")
+             return "Unknown Genus" # Or None if genus is Optional
 
+        for entry in value: # Now 'entry' should be a dictionary
+             if not isinstance(entry, dict):
+                 logger.warning(f"Unexpected item type in genus list: {type(entry)}. Expected dict.")
+                 continue # Skip non-dict items
+
+             lang_info = entry.get("language", {}) # Safe get for language dict
+             if lang_info.get("name") == "en": # Safe get for name
+                 return entry.get("genus", "Unknown Genus") # Default if genus key missing
+        return "Unknown Genus" # Fallback if no English genus found
+    
     @validator("flavor_text_entries", pre=True, allow_reuse=True)
     def filter_english_flavor_text(cls, value):
         """Filter flavor text entries to keep only English versions."""
-        return [entry for entry in value if entry.get("language", {}).get("name") == "en"]
+        if not isinstance(value, list):
+             logger.warning(f"Unexpected type for flavor_text_entries validator: {type(value)}. Expected list.")
+             return [] # Return empty list if input is not a list
+        
+        filtered_entries = []
+        for entry in value:
+            if not isinstance(entry, dict):
+                logger.warning(f"Unexpected item type in flavor_text_entries list: {type(entry)}. Expected dict.")
+                continue 
+            
+            lang_info = entry.get("language", {})
+            if lang_info.get("name") == "en":
+                filtered_entries.append(entry)
+        return filtered_entries
 
     @validator("evolution_chain_url", pre=True, allow_reuse=True)
     def extract_evolution_chain_url(cls, value):
         """Extract evolution chain URL from species data."""
+        # Handle cached value
+        if isinstance(value, str):
+            return value
         if isinstance(value, dict) and "evolution_chain" in value:
             return value["evolution_chain"].get("url")
         return None # Or raise ValueError, depending on how critical this is

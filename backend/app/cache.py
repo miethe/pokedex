@@ -128,7 +128,7 @@ async def clear_cache(key: str):
 #     create_redis_pool()
 #     test_key = "my_test_key"
 #     test_data = {"name": "Pikachu", "type": "Electric"}
-#
+
 #     await set_cache(test_key, test_data, ttl=60)
 #     cached = await get_cache(test_key)
 #     print(f"Retrieved from cache: {cached}")
@@ -136,7 +136,7 @@ async def clear_cache(key: str):
 #     cached_after_clear = await get_cache(test_key)
 #     print(f"Retrieved after clear: {cached_after_clear}")
 #     await close_redis_pool()
-#
+
 # if __name__ == "__main__":
 #     import asyncio
 #     asyncio.run(main())
