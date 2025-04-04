@@ -1,0 +1,19 @@
+# pokedex_project/Dockerfile.frontend
+
+# Use the official Nginx image (Alpine is lightweight)
+FROM nginx:stable-alpine
+
+# Remove the default Nginx configuration file
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy the custom Nginx configuration file from the frontend directory
+COPY ./frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy the static frontend files (HTML, CSS, JS) into the Nginx web root directory
+COPY ./frontend /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# The base Nginx image already defines the CMD to start Nginx
+# CMD ["nginx", "-g", "daemon off;"]

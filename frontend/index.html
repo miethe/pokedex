@@ -5,39 +5,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pokedex</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Optional: Add Favicon -->
+    <!-- <link rel="icon" type="image/png" href="/path/to/favicon.png"> -->
 </head>
 <body>
     <h1>Pokedex Application</h1>
 
+    <!-- Filter Controls Container -->
     <div class="controls">
+        <!-- Search by Name/ID -->
         <input type="search" id="search-input" placeholder="Search by Name or ID...">
+
+        <!-- Generation Filter Dropdown -->
         <select id="generation-filter">
             <option value="">All Generations</option>
-            <!-- Generation options will be populated by JS -->
+            <!-- Generation options (e.g., Gen 1, Gen 2...) will be dynamically populated by JS from /api/generations -->
         </select>
+
+        <!-- Type Filter Checkboxes -->
         <fieldset id="type-filter">
-            <legend>Filter by Type (AND):</legend>
-            <!-- Type checkboxes will be populated by JS -->
+            <legend>Filter by Type (AND logic):</legend>
+            <div id="type-checkboxes-container">
+                 <!-- Type checkboxes (e.g., Fire, Water...) will be dynamically populated by JS from /api/types -->
+                 <span class="placeholder-text">Loading types...</span>
+            </div>
         </fieldset>
     </div>
 
-    <div id="loading-indicator" style="display: none;">Loading Pokémon...</div>
+    <!-- Loading Indicator for the main list -->
+    <div id="loading-indicator" style="display: none;">Loading Pokémon... Please wait.</div>
 
+    <!-- Container for the Pokémon list cards -->
     <div id="pokedex-list">
-        <!-- Pokémon list items will be populated here -->
+        <!-- Pokémon list cards will be dynamically populated here by JS using data from /api/pokedex/summary -->
     </div>
 
+    <!-- Modal Dialog for Pokémon Details -->
     <div id="pokemon-detail-modal" class="modal" style="display: none;">
         <div class="modal-content">
+            <!-- Close button for the modal -->
             <span class="close-button">×</span>
             <h2>Pokémon Details</h2>
+            <!-- Container for the detailed content -->
             <div id="pokemon-detail-content">
-                <!-- Detailed Pokémon info will be loaded here -->
+                <!-- Loading Indicator for the details within the modal -->
                 <div id="detail-loading-indicator" style="display: none;">Loading details...</div>
+                <!-- Detailed Pokémon info will be loaded here by JS using data from /api/pokemon/{id_or_name} -->
             </div>
         </div>
     </div>
 
+    <!-- Link to the JavaScript file -->
     <script src="script.js"></script>
 </body>
 </html>

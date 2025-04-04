@@ -7,7 +7,7 @@ from functools import lru_cache # Consider using Redis cache instead of in-memor
 from .pokeapi_client import fetch_pokeapi
 from .cache import get_cache, set_cache
 from .config import settings
-from .models import PokemonSummary, PokemonDetail, PokemonType, Generation, PokemonTypeFilter
+from .models import PokemonSummary, PokemonDetail, PokemonType, Generation, PokemonTypeFilter, PokemonAbility, PokemonStat
 
 logger = logging.getLogger(__name__)
 
@@ -233,64 +233,100 @@ async def get_all_types_data(force_refresh: bool = False) -> Optional[List[Pokem
     return None
 
 
-@lru_cache(maxsize=9) # Cache the generation name to ID mapping in memory
-def _generation_name_to_id(generation_name: str) -> Optional[int]:
-    """Helper function to convert generation name (e.g., 'generation-i') to ID (e.g., 1)."""
+@lru_cache(maxsize=16) # Cache results for generation names
+def _generation_name_to_id(generation_name: Optional[str]) -> Optional[int]:
+    """
+    Helper function to convert generation name (e.g., 'generation-i', 'generation-ix')
+    to its corresponding integer ID (e.g., 1, 9).
+    Handles Roman numerals I through IX.
+    """
     if not generation_name:
+        logger.warning("Received empty generation name.")
         return None
+
+    # Mapping for Roman numerals used in PokeAPI generation names
+    roman_to_int_map = {
+        "i": 1,
+        "ii": 2,
+        "iii": 3,
+        "iv": 4,
+        "v": 5,
+        "vi": 6,
+        "vii": 7,
+        "viii": 8,
+        "ix": 9,
+        # Add more mappings here if new generations use Roman numerals
+    }
+
     try:
-        return int(generation_name.split('-')[1]) # e.g., 'generation-i' -> ['generation', 'i'] -> 'i' -> 1
-    except (IndexError, ValueError):
-        logger.warning(f"Could not parse generation ID from name: {generation_name}")
+        # Split the string, e.g., "generation-ix" -> ["generation", "ix"]
+        parts = generation_name.lower().split('-')
+        if len(parts) != 2 or not parts[1]:
+            logger.warning(f"Could not parse Roman numeral from generation name: {generation_name}")
+            return None
+
+        roman_numeral = parts[1]
+
+        # Look up the Roman numeral in our map
+        generation_id = roman_to_int_map.get(roman_numeral)
+
+        if generation_id is None:
+            logger.warning(f"Unknown or unsupported Roman numeral '{roman_numeral}' in generation name: {generation_name}")
+            return None # Return None if the Roman numeral is not in our map
+
+        return generation_id
+
+    except Exception as e: # Catch potential errors during split or processing
+        logger.error(f"Error converting generation name '{generation_name}' to ID: {e}", exc_info=True)
         return None
 
 
 # Example Usage (for testing within this module)
-# async def main():
-#     # Fetch and print Pokedex summary data
-#     summary_data = await get_pokedex_summary_data(force_refresh=True) # Force refresh for first run
-#     if summary_data:
-#         print(f"Fetched {len(summary_data)} Pokemon summary items.")
-#         # print("First 3 Pokemon Summaries:\n", [s.model_dump_json(indent=2) for s in summary_data[:3]]) # Optional print
-#     else:
-#         print("Failed to retrieve Pokedex summary data.")
-#
-#     # Fetch and print detail for Bulbasaur
-#     bulbasaur_detail = await get_pokemon_detail_data("bulbasaur", force_refresh=True) # Force refresh for first run
-#     if bulbasaur_detail:
-#         print("\nBulbasaur Detail:\n", bulbasaur_detail.model_dump_json(indent=2))
-#     else:
-#         print("Failed to retrieve Bulbasaur detail data.")
-#
-#     # Fetch and print generations data
-#     generations = await get_all_generations_data(force_refresh=True)
-#     if generations:
-#         print(f"\nFetched {len(generations)} generations.")
-#         # print("Generations:\n", [g.model_dump_json(indent=2) for g in generations])
-#     else:
-#         print("Failed to retrieve generations data.")
-#
-#     # Fetch and print types data
-#     types = await get_all_types_data(force_refresh=True)
-#     if types:
-#         print(f"\nFetched {len(types)} types.")
-#         # print("Types:\n", [t.model_dump_json(indent=2) for t in types])
-#     else:
-#         print("Failed to retrieve types data.")
-#
-# if __name__ == "__main__":
-#     import asyncio
-#     import time
-#
-#     async def measure_time(coro_func, *args, **kwargs):
-#         start_time = time.time()
-#         result = await coro_func(*args, **kwargs)
-#         end_time = time.time()
-#         duration = end_time - start_time
-#         print(f"Function '{coro_func.__name__}' execution time: {duration:.4f} seconds")
-#         return result
-#
-#     async def main_with_timing():
-#         await measure_time(main) # Run main function and measure its total time
-#
-#     asyncio.run(main_with_timing())
+async def main():
+    # Fetch and print Pokedex summary data
+    summary_data = await get_pokedex_summary_data(force_refresh=True) # Force refresh for first run
+    if summary_data:
+        print(f"Fetched {len(summary_data)} Pokemon summary items.")
+        # print("First 3 Pokemon Summaries:\n", [s.model_dump_json(indent=2) for s in summary_data[:3]]) # Optional print
+    else:
+        print("Failed to retrieve Pokedex summary data.")
+
+    # Fetch and print detail for Bulbasaur
+    bulbasaur_detail = await get_pokemon_detail_data("bulbasaur", force_refresh=True) # Force refresh for first run
+    if bulbasaur_detail:
+        print("\nBulbasaur Detail:\n", bulbasaur_detail.model_dump_json(indent=2))
+    else:
+        print("Failed to retrieve Bulbasaur detail data.")
+
+    # # Fetch and print generations data
+    # generations = await get_all_generations_data(force_refresh=True)
+    # if generations:
+    #     print(f"\nFetched {len(generations)} generations.")
+    #     # print("Generations:\n", [g.model_dump_json(indent=2) for g in generations])
+    # else:
+    #     print("Failed to retrieve generations data.")
+
+    # # Fetch and print types data
+    # types = await get_all_types_data(force_refresh=True)
+    # if types:
+    #     print(f"\nFetched {len(types)} types.")
+    #     # print("Types:\n", [t.model_dump_json(indent=2) for t in types])
+    # else:
+    #     print("Failed to retrieve types data.")
+
+if __name__ == "__main__":
+    import asyncio
+    import time
+
+    async def measure_time(coro_func, *args, **kwargs):
+        start_time = time.time()
+        result = await coro_func(*args, **kwargs)
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"Function '{coro_func.__name__}' execution time: {duration:.4f} seconds")
+        return result
+
+    async def main_with_timing():
+        await measure_time(main) # Run main function and measure its total time
+
+    asyncio.run(main_with_timing())
