@@ -111,7 +111,7 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
                 return PokemonDetail(**cached_detail) # Rehydrate from cached dict
             except Exception as e:
                 logger.error(f"Error validating cached Pokemon detail data for '{pokemon_id_or_name}', refreshing from PokeAPI. Error: {e}", exc_info=True)
-                force_refresh = True # Fallback to refresh
+        force_refresh = True # Fallback to refresh
 
     if force_refresh:
         logger.info(f"Fetching fresh Pokémon detail data for '{pokemon_id_or_name}' from PokeAPI...")
