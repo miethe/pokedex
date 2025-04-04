@@ -17,32 +17,47 @@ GENERATIONS_CACHE_KEY = "generations_data"
 TYPES_CACHE_KEY = "types_data"
 
 async def _fetch_pokemon_summary(pokemon_id: int) -> Optional[PokemonSummary]:
-    """Fetches and processes summary data for a single Pokémon from PokeAPI."""
+    """Fetches and processes summary data for a single Pokémon from PokeAPI, including sprite."""
     pokemon_data = await fetch_pokeapi(f"/pokemon/{pokemon_id}")
     if not pokemon_data:
-        logger.warning(f"Could not fetch data for Pokémon ID: {pokemon_id} from PokeAPI.")
+        logger.warning(f"Could not fetch base data for Pokémon ID: {pokemon_id} from PokeAPI.")
         return None
 
-    species_url = pokemon_data.get('species', {}).get('url')
-    if not species_url:
-        logger.warning(f"Species URL not found for Pokémon ID: {pokemon_id}.")
-        return None
+    species_info = pokemon_data.get('species', {})
+    species_url = species_info.get('url') if species_info else None
 
-    species_data = await fetch_pokeapi(species_url)
-    if not species_data:
-        logger.warning(f"Could not fetch species data for Pokémon ID: {pokemon_id} from PokeAPI at {species_url}.")
-        return None
+    species_data = None
+    if species_url:
+         species_data = await fetch_pokeapi(species_url)
+    # Default species_data to empty dict if fetch failed or URL was missing
+    if species_data is None:
+         species_data = {}
 
     generation_name = species_data.get('generation', {}).get('name')
-    generation_id = _generation_name_to_id(generation_name) if generation_name else None
+    generation_id = _generation_name_to_id(generation_name) if generation_name else 0
 
-    types = [PokemonType(name=t['type']['name']) for t in pokemon_data.get('types', [])]
+    types_list = pokemon_data.get('types', [])
+    types = [PokemonType(name=t.get('type', {}).get('name', 'unknown')) for t in types_list]
+
+    # --- Extract Sprite URL ---
+    sprite_url = pokemon_data.get('sprites', {}).get('front_default')
+    # Ensure HTTPS
+    if sprite_url and sprite_url.startswith("http://"):
+         sprite_url = sprite_url.replace("http://", "https://", 1)
+
+    # Validate required fields exist before creating summary
+    poke_id = pokemon_data.get('id')
+    poke_name = pokemon_data.get('name')
+    if poke_id is None or poke_name is None:
+         logger.error(f"Missing critical ID or Name for Pokemon ID fetch attempt: {pokemon_id}. Skipping summary.")
+         return None
 
     return PokemonSummary(
-        id=pokemon_data['id'],
-        name=pokemon_data['name'],
+        id=poke_id,
+        name=poke_name,
         generation_id=generation_id,
-        types=types
+        types=types,
+        sprite_url=sprite_url # Add the sprite URL
     )
 
 

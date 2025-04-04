@@ -149,13 +149,17 @@ img {
     transform: translateY(-4px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
-/* Placeholder for sprite in card if needed */
-.pokemon-card .card-sprite-placeholder {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 5px;
-    background-color: #eee;
-    border-radius: 50%;
+/* --- Style for sprite in the list card --- */
+.pokemon-card .card-sprite { /* Changed from .card-sprite-placeholder */
+    width: 70px;  /* Adjust size as needed */
+    height: 70px; /* Adjust size as needed */
+    margin-bottom: 8px;
+    /* background-color: #eee; /* Remove background color if using actual image */
+    /* border-radius: 50%; Remove if you don't want circle mask */
+    object-fit: contain; /* Ensure sprite fits well */
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
 }
 .pokemon-card .pokemon-name {
     display: block;
@@ -280,24 +284,29 @@ img {
 .main-sprite-container {
     display: inline-block; /* Center */
     position: relative;
-    width: 180px; /* Circle diameter */
-    height: 180px;
-    background-color: #f0f2f5; /* Light grey circle background */
+    width: 180px; /* Circle diameter - KEEP THIS FIXED */
+    height: 180px; /* Circle diameter - KEEP THIS FIXED */
+    background-color: #f0f2f5;
     border-radius: 50%;
     border: 1px solid #ddd;
     box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
-    margin-top: -65px; /* Pull circle up over red bar slightly */
+    margin-top: -65px;
     margin-bottom: 15px;
-    z-index: 10; /* Above red bar */
+    z-index: 10;
+    /* Reduce padding to give sprite more internal space */
+    padding: 8px; /* Adjust as needed */
+    overflow: hidden; /* Ensure sprite doesn't overflow circle */
 }
 
 .main-sprite {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%); /* Center sprite in circle */
-    max-width: 85%; /* Max width relative to container */
-    max-height: 85%;
+    transform: translate(-50%, -50%);
+    /* Make sprite fill container dimensions */
+    width: 100%;
+    height: 100%;
+    /* KEEP 'contain' to prevent stretching/distortion */
     object-fit: contain;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
@@ -403,24 +412,64 @@ img {
     color: #aaa;
 }
 
-/* Stats Card Specific Styling */
-.stats-list-text { list-style: none; padding: 0; margin: 0; }
-.stats-list-text li {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 6px;
-    padding-bottom: 6px;
+/* --- Stats Card Specific Styling (with Bars) --- */
+.stats-list-bars { /* New class for the UL */
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.stats-list-bars li {
+    display: grid;
+    /* Define columns: Name (flexible), Value (fixed), Bar (takes rest) */
+    grid-template-columns: minmax(75px, auto) 40px 1fr;
+    gap: 8px; /* Space between columns */
+    align-items: center; /* Vertically center content in the row */
+    margin-bottom: 8px; /* Space between stats */
+    padding-bottom: 8px;
     border-bottom: 1px dashed #f0f0f0;
     font-size: 0.9em;
 }
-.stats-list-text li span:first-child {
-    color: #666; /* Grey for stat name */
-    margin-right: 10px;
-    flex-shrink: 0;
-    width: 80px; /* Align names */
+.stats-list-bars li:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
 }
-.stats-list-text li span:last-child { font-weight: bold; color: #444; }
-.stats-list-text li:last-child { border-bottom: none; margin-bottom: 0; }
+
+.stats-list-bars .stat-name { /* Column 1: Stat Name */
+    color: #555; /* Slightly darker grey */
+    grid-column: 1 / 2;
+    text-align: left;
+    white-space: nowrap; /* Prevent wrapping if still too tight, but grid should handle it */
+    font-weight: 500;
+}
+
+.stats-list-bars .stat-value { /* Column 2: Stat Value */
+    font-weight: bold;
+    color: #333;
+    text-align: right;
+    grid-column: 2 / 3;
+}
+
+.stat-bar-container { /* Column 3: Bar Background */
+    background-color: #e9ecef; /* Light grey background for the bar track */
+    border-radius: 5px; /* Rounded corners for the track */
+    height: 10px; /* Height of the bar track */
+    overflow: hidden; /* Clip the inner bar */
+    grid-column: 3 / 4;
+    position: relative; /* For potential future pseudo-elements */
+}
+
+.stat-bar { /* The actual colored bar */
+    height: 100%;
+    border-radius: 5px; /* Match container */
+    transition: width 0.6s cubic-bezier(0.25, 0.1, 0.25, 1); /* Smooth width transition */
+    box-shadow: inset 0 -1px 1px rgba(0,0,0,0.1); /* Subtle inner shadow */
+}
+
+/* Color classes for the bar */
+.stat-bar-red    { background: linear-gradient(to bottom, #ff7474, #e74c3c); } /* Red Gradient */
+.stat-bar-yellow { background: linear-gradient(to bottom, #f4d03f, #f1c40f); } /* Yellow Gradient */
+.stat-bar-green  { background: linear-gradient(to bottom, #58d68d, #2ecc71); } /* Green Gradient */
+.stat-bar-purple { background: linear-gradient(to bottom, #af7ac5, #9b59b6); } /* Purple Gradient */
 
 /* Description & Evolution Cards */
 .description-card, .evolution-card {

@@ -16,6 +16,7 @@ class PokemonSummary(BaseModel):
     name: str = Field(..., description="Pokémon name")
     generation_id: int = Field(..., description="Generation ID")
     types: List[PokemonType] = Field(..., description="List of Pokémon types")
+    sprite_url: Optional[str] = Field(None, description="Default front sprite URL (HTTPS)")
 
 class PokemonAbility(BaseModel):
     """Represents a Pokémon ability with minimal details for detail view."""

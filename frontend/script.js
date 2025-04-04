@@ -119,10 +119,14 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.id = pokemon.id;
             card.dataset.name = pokemon.name;
 
-            // Add placeholder for sprite - actual sprite not in summary
-            const imgPlaceholder = document.createElement('div');
-            imgPlaceholder.classList.add('card-sprite-placeholder');
-            card.appendChild(imgPlaceholder);
+            // --- Replace placeholder with actual image ---
+            const img = document.createElement('img');
+            img.src = pokemon.sprite_url || 'placeholder-circle.png'; // Use sprite_url, provide fallback image if needed
+            img.alt = pokemon.name;
+            img.classList.add('card-sprite'); // New class for the actual sprite
+            img.loading = 'lazy'; // Lazy load images in the list
+            card.appendChild(img);
+            // --- End image replacement ---
 
             const nameSpan = document.createElement('span');
             nameSpan.textContent = pokemon.name;
@@ -341,17 +345,45 @@ document.addEventListener('DOMContentLoaded', () => {
             </ul>
         `));
 
-        // Base Stats Card
-        let statsHtml = '<ul class="stats-list-text">';
+        // --- Base Stats Card ---
+        const statsCard = document.createElement('div');
+        statsCard.classList.add('info-card', 'stats-card');
+        // Use a different list structure to accommodate bars
+        let statsHtml = '<h3>Base Stats</h3><div class="card-content"><ul class="stats-list-bars">';
+        const MAX_STAT_VALUE = 255; // Standard max base stat for calculation
+
         data.stats.forEach(stat => {
-            let statName = stat.name.replace('-', '. ');
-            if(stat.name === 'hp') statName = 'Hp';
-            else if(statName.includes('.')) statName = statName.split('.').map(w=>w[0].toUpperCase()+'.').join('');
-            else statName = statName.charAt(0).toUpperCase() + statName.slice(1);
-            statsHtml += `<li><span>${statName}</span><span>${stat.base_stat}</span></li>`;
+            // Format stat name (e.g., 'special-attack' -> 'Sp. Attack') - Improved
+            let statName = stat.name.replace('-', ' ');
+            if (stat.name === 'hp') {
+                statName = 'HP';
+            } else if (stat.name.startsWith('special-')) {
+                 statName = 'Sp. ' + statName.replace('special ', '').charAt(0).toUpperCase() + statName.slice(9); // e.g. Sp. Attack
+            } else {
+                statName = statName.charAt(0).toUpperCase() + statName.slice(1);
+            }
+
+            // Calculate percentage and determine color
+            const percentage = Math.max(0, Math.min(100, (stat.base_stat / MAX_STAT_VALUE) * 100)); // Ensure 0-100 range
+            let barColorClass = 'stat-bar-red'; // Default: Red (< 25%)
+            if (percentage >= 75) barColorClass = 'stat-bar-purple'; // >= 75% Purple
+            else if (percentage >= 50) barColorClass = 'stat-bar-green';  // 50-74% Green
+            else if (percentage >= 25) barColorClass = 'stat-bar-yellow'; // 25-49% Yellow
+
+            // Build list item HTML with bar elements
+            statsHtml += `
+                <li>
+                    <span class="stat-name">${statName}</span>
+                    <span class="stat-value">${stat.base_stat}</span>
+                    <div class="stat-bar-container" title="${stat.base_stat}/${MAX_STAT_VALUE}">
+                        <div class="stat-bar ${barColorClass}" style="width: ${percentage}%;"></div>
+                    </div>
+                </li>
+            `;
         });
-        statsHtml += '</ul>';
-        mainGrid.appendChild(createInfoCard('Base Stats', statsHtml));
+        statsHtml += '</ul></div>';
+        statsCard.innerHTML = statsHtml;
+        mainGrid.appendChild(statsCard); // Add card to grid
 
         // Breeding Info Card
         let genderRatio = 'Genderless';
