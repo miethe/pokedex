@@ -1,8 +1,8 @@
 # backend/app/models.py
 import logging
 
-from pydantic import BaseModel, Field, validator
-from typing import List, Optional
+from pydantic import BaseModel, Field, validator, root_validator
+from typing import List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ class PokemonAbility(BaseModel):
     """Represents a Pokémon ability with minimal details for detail view."""
     name: str = Field(..., description="Name of the ability")
     url: str = Field(..., description="URL to ability details on PokeAPI") # Optional: could be used for future features
+    is_hidden: bool = Field(False, description="Is this a hidden ability")
 
 class PokemonStat(BaseModel):
     """Represents a base stat for a Pokémon."""
@@ -29,19 +30,61 @@ class PokemonStat(BaseModel):
 
 class PokemonSprites(BaseModel):
     """Sprites for a Pokémon, including official artwork and game sprites."""
-    front_default: Optional[str] = Field(None, description="Default front sprite")
-    back_default: Optional[str] = Field(None, description="Default back sprite")
-    front_shiny: Optional[str] = Field(None, description="Shiny front sprite")
-    back_shiny: Optional[str] = Field(None, description="Shiny back sprite")
-    official_artwork: Optional[str] = Field(None, description="URL for official artwork sprite")
-    # Add other sprite fields as needed (e.g., for female, other games, etc.)
+    # Existing static sprites
+    front_default: Optional[str] = None
+    back_default: Optional[str] = None
+    front_shiny: Optional[str] = None
+    back_shiny: Optional[str] = None
+    front_female: Optional[str] = None # Add female variants
+    back_female: Optional[str] = None
+    front_shiny_female: Optional[str] = None
+    back_shiny_female: Optional[str] = None
 
-    @validator("official_artwork", pre=True, allow_reuse=True)
-    def extract_official_artwork(cls, value):
-        """Extract official artwork from nested sprite structure if present."""
-        if isinstance(value, dict) and "other" in value and "official-artwork" in value["other"]:
-            return value["other"]["official-artwork"].get("front_default")
-        return value # Return original if not in expected nested structure
+    # Official Artwork (extracted via validator)
+    official_artwork: Optional[str] = Field(None, description="URL for official artwork sprite")
+
+    # Animated Sprites (will be populated by root_validator)
+    animated_front_default: Optional[str] = None
+    animated_back_default: Optional[str] = None
+    animated_front_shiny: Optional[str] = None
+    animated_back_shiny: Optional[str] = None
+    animated_front_female: Optional[str] = None # Just in case they add these later
+    animated_back_female: Optional[str] = None
+    animated_front_shiny_female: Optional[str] = None
+    animated_back_shiny_female: Optional[str] = None
+
+    @root_validator(pre=True)
+    def extract_nested_sprites(cls, values: dict):
+        """
+        Extracts deeply nested sprites (official artwork, animated)
+        and adds them to the top level for easier field assignment.
+        Runs before individual field validation.
+        """
+        if not isinstance(values, dict): # Handle case where input isn't a dict
+            return values
+
+        # Extract Official Artwork
+        official_artwork_url = values.get('other', {}).get('official-artwork', {}).get('front_default')
+        if official_artwork_url:
+            values['official_artwork'] = official_artwork_url # Add to dict for field assignment
+
+        # Extract Animated Sprites (Gen V Black/White)
+        try:
+            animated_sprites = values.get('versions', {}).get('generation-v', {}).get('black-white', {}).get('animated', {})
+            if animated_sprites: # Check if animated dict exists and is not None
+                 values['animated_front_default'] = animated_sprites.get('front_default')
+                 values['animated_back_default'] = animated_sprites.get('back_default')
+                 values['animated_front_shiny'] = animated_sprites.get('front_shiny')
+                 values['animated_back_shiny'] = animated_sprites.get('back_shiny')
+                 values['animated_front_female'] = animated_sprites.get('front_female') # Get if exists
+                 values['animated_back_female'] = animated_sprites.get('back_female')
+                 values['animated_front_shiny_female'] = animated_sprites.get('front_shiny_female')
+                 values['animated_back_shiny_female'] = animated_sprites.get('back_shiny_female')
+        except Exception as e:
+            # Log potential errors during complex extraction, but don't fail validation
+            logger.warning(f"Could not extract animated sprites: {e}", exc_info=False) # Set exc_info=False to avoid clutter
+
+        return values
 
     @validator("*", pre=True, allow_reuse=True)
     def ensure_https_url(cls, value):
@@ -49,7 +92,6 @@ class PokemonSprites(BaseModel):
         if isinstance(value, str) and value.startswith("http://"):
             return value.replace("http://", "https://", 1) # Replace only the first occurrence
         return value
-
 
 class PokemonDetail(BaseModel):
     """Detailed data for a single Pokémon."""
@@ -65,20 +107,23 @@ class PokemonDetail(BaseModel):
     stats: List[PokemonStat] = Field(..., description="List of base stats")
     sprites: PokemonSprites = Field(..., description="Pokémon sprites")
     species_url: str = Field(..., description="URL to species data for more info (description, evolution chain)")
-    evolution_chain_url: str = Field(..., description="URL to evolution chain data") # Extracted from species
-    evolves_from_species: Optional[dict] = Field(..., description="The Pokémon species that evolves into this Pokemon_species") # Extracted from species
-    flavor_text_entries: List[dict] = Field(..., description="List of flavor text entries (descriptions)") # From species
-    gender_rate: int = Field(..., description="Gender rate (for breeding info)") # From species
-    egg_groups: List[dict] = Field(..., description="List of egg groups") # From species
-    habitat: Optional[str] = Field(None, description="Habitat name, if any") # From species
-    is_baby: Optional[bool] = Field(False, description="Whether it's a baby Pokémon") # From species
-    is_legendary: bool = Field(False, description="Whether it's a legendary Pokémon") # From species
-    is_mythical: bool = Field(False, description="Whether it's a mythical Pokémon") # From species
-    has_gender_differences: bool = Field(False, description="Whether Pokémon has visual gender differences") # From species
-    shape: Optional[str] = Field(None, description="Pokémon shape name") # From species
-    growth_rate_name: Optional[str] = Field(None, description="Growth rate name") # From species
-    capture_rate: Optional[int] = Field(None, description="The base capture rate; up to 255") # From species
-    base_happiness: Optional[int] = Field(None, description="The happiness when caught by a normal Pokéball; up to 255") # From species
+    
+    # Fields from Species data
+    evolution_chain_url: Optional[str] = Field(..., description="URL to evolution chain data")
+    evolves_from_species: Optional[dict] = Field(None, description="The Pokémon species that evolves into this Pokemon_species")
+    flavor_text_entries: List[dict] = Field(..., description="List of flavor text entries (descriptions)") 
+    gender_rate: int = Field(..., description="Gender rate (for breeding info)") # -1 genderless, 0 male only, 8 female only, 1-7 ratio
+    egg_groups: List[dict] = Field(..., description="List of egg groups") 
+    habitat: Optional[str] = Field(None, description="Habitat name, if any") 
+    is_baby: Optional[bool] = Field(False, description="Whether it's a baby Pokémon") 
+    is_legendary: bool = Field(False, description="Whether it's a legendary Pokémon") 
+    is_mythical: bool = Field(False, description="Whether it's a mythical Pokémon") 
+    has_gender_differences: bool = Field(False, description="Whether Pokémon has visual gender differences") 
+    shape: Optional[str] = Field(None, description="Pokémon shape name") 
+    growth_rate_name: Optional[str] = Field(None, description="Growth rate name") 
+    capture_rate: Optional[int] = Field(None, alias='capture_rate', description="Base capture rate; up to 255")
+    base_happiness: Optional[int] = Field(None, description="The happiness when caught by a normal Pokéball; up to 255") 
+    hatch_counter: Optional[int] = Field(None, description="Cycles required to hatch, used for step calculation") 
 
     @validator("genus", pre=True, allow_reuse=True)
     def extract_genus(cls, value):
@@ -97,7 +142,7 @@ class PokemonDetail(BaseModel):
                  continue # Skip non-dict items
 
              lang_info = entry.get("language", {}) # Safe get for language dict
-             if lang_info.get("name") == "en": # Safe get for name
+             if lang_info and lang_info.get("name") == "en": # Safe get for name
                  return entry.get("genus", "Unknown Genus") # Default if genus key missing
         return "Unknown Genus" # Fallback if no English genus found
     
@@ -115,7 +160,7 @@ class PokemonDetail(BaseModel):
                 continue 
             
             lang_info = entry.get("language", {})
-            if lang_info.get("name") == "en":
+            if lang_info and lang_info.get("name") == "en": # Check lang_info exists
                 filtered_entries.append(entry)
         return filtered_entries
 
@@ -126,9 +171,23 @@ class PokemonDetail(BaseModel):
         if isinstance(value, str):
             return value
         if isinstance(value, dict) and "evolution_chain" in value:
-            return value["evolution_chain"].get("url")
+             evo_chain_info = value["evolution_chain"]
+             # Ensure it's a dict and has 'url' before returning
+             return evo_chain_info.get("url") if isinstance(evo_chain_info, dict) else None
         return None # Or raise ValueError, depending on how critical this is
 
+    @validator("growth_rate_name", pre=True, allow_reuse=True)
+    def extract_growth_rate_name(cls, value):
+        """Extract growth rate name from nested structure if needed"""
+        # Passed from pokedex_data directly now, but validator could handle nesting:
+        # if isinstance(value, dict) and "growth_rate" in value:
+        #     return value.get("growth_rate", {}).get("name")
+        # return value # Assuming already extracted name is passed
+        # Safest: Expect the extracted name string or None
+        return value if isinstance(value, str) else None
+    
+    class Config:
+        populate_by_name = True # Important: Allows using 'alias' and field names
 
 class Generation(BaseModel):
     """Represents a Pokemon Generation for filter options."""
@@ -138,7 +197,6 @@ class Generation(BaseModel):
 class PokemonTypeFilter(BaseModel):
     """Represents a Pokemon Type for filter options."""
     name: str = Field(..., description="Type Name (e.g., fire)")
-
 
 # Example usage (for testing models):
 if __name__ == "__main__":

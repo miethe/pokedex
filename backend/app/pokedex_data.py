@@ -146,10 +146,10 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
 
         # Ensure lists default to empty lists if key is missing
         types_list = pokemon_data.get('types', [])
-        abilities_list = pokemon_data.get('abilities', [])
+        abilities_list = pokemon_data.get('abilities', []) # List of ability dicts
         stats_list = pokemon_data.get('stats', [])
         egg_groups_list = species_data.get('egg_groups', [])
-        evolves_from_species_dict = species_data.get('evolves_from_species', [])
+        evolves_from_val = species_data.get('evolves_from_species')
         flavor_text_list = species_data.get('flavor_text_entries', [])
         genera_list = species_data.get('genera', []) # For genus extraction validator
 
@@ -158,8 +158,9 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
         weight_val = pokemon_data.get('weight')
         base_exp_val = pokemon_data.get('base_experience')
         gender_rate_val = species_data.get('gender_rate') # Can be -1 for genderless
-        capture_rate_val = species_data.get('capture_rate')
+        capture_rate_val = species_data.get('capture_rate') # API uses capture_rate
         base_happiness_val = species_data.get('base_happiness')
+        hatch_counter_val = species_data.get('hatch_counter')
         
         # Handle potentially missing OR null nested dictionaries before getting 'name'
         habitat_info = species_data.get('habitat') # Get the habitat value (could be dict or None)
@@ -193,7 +194,8 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
                 abilities=[
                     PokemonAbility(
                         name=a.get('ability', {}).get('name', 'unknown'),
-                        url=a.get('ability', {}).get('url', '')
+                        url=a.get('ability', {}).get('url', ''),
+                        is_hidden=a.get('is_hidden', False)
                     ) for a in abilities_list
                 ], # Safely access nested ability info
                 height=height_val if height_val is not None else 0, # Default 0 if None
@@ -210,10 +212,11 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
                 evolution_chain_url=species_data, # Pass dict to validator (validator handles missing 'evolution_chain')
                 flavor_text_entries=flavor_text_list, # Pass potentially empty list
                 gender_rate=gender_rate_val if gender_rate_val is not None else -1, # Default -1 if None
-                capture_rate=capture_rate_val if gender_rate_val is not None else -1, # Default -1 if None
-                base_happiness=base_happiness_val if gender_rate_val is not None else -1, # Default -1 if None
+                capture_rate=capture_rate_val if capture_rate_val is not None else 0, # Default 0 if None
+                base_happiness=base_happiness_val if base_happiness_val is not None else 0, # Default 0 if None
+                hatch_counter=hatch_counter_val if hatch_counter_val is not None else 0, # Default 0 if None
                 egg_groups=egg_groups_list, # Pass potentially empty list
-                evolves_from_species=evolves_from_species_dict, # Pass potentially empty list
+                evolves_from_species=evolves_from_val, # Pass potentially empty list
                 habitat=habitat_name, # Pass None or the name (model field is Optional)
                 is_legendary=is_legendary_val,
                 is_mythical=is_mythical_val,
