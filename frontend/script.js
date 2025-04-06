@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const generationFilter = document.getElementById('generation-filter');
     const typeFilterContainer = document.getElementById('type-checkboxes-container');
     const typeFilterFieldset = document.getElementById('type-filter');
+    const statusFilterContainer = document.getElementById('status-checkboxes-container');
+    const statusFilterFieldset = document.getElementById('status-filter');
     const pokedexListContainer = document.getElementById('pokedex-list');
     const loadingIndicator = document.getElementById('loading-indicator');
 
@@ -171,16 +173,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedTypes = Array.from(typeFilterContainer.querySelectorAll('input[type="checkbox"]:checked'))
                                    .map(checkbox => checkbox.value);
 
+        const selectedStatuses = Array.from(statusFilterContainer.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(checkbox => checkbox.value); // Values are 'is_baby', 'is_legendary', 'is_mythical'
+
         const filteredPokemon = allPokemonData.filter(pokemon => {
+            // 1. Generation Filter
             const generationMatch = !selectedGeneration || pokemon.generation_id === parseInt(selectedGeneration);
+
+            // 2. Type Filter (AND logic)
             const typeMatch = selectedTypes.length === 0 || selectedTypes.every(selectedType =>
                 pokemon.types.some(pokemonType => pokemonType.name === selectedType)
             );
+
+            // 3. Search Filter (Name or ID)
             const searchMatch = !searchTerm ||
                                 pokemon.name.toLowerCase().includes(searchTerm) ||
                                 String(pokemon.id).includes(searchTerm);
-            return generationMatch && typeMatch && searchMatch;
+
+            // 4. Status Filter (OR logic between checked statuses)
+            // If no status boxes are checked, it matches everything.
+            // If one or more are checked, the pokemon must have AT LEAST ONE of the checked statuses set to true.
+            const statusMatch = selectedStatuses.length === 0 || selectedStatuses.some(statusKey =>
+                 pokemon[statusKey] === true // Check if pokemon property corresponding to the value ('is_baby', etc.) is true
+            );
+            // ------------------------------------------------------
+
+            // Combine all filters (all must be true)
+            return generationMatch && typeMatch && searchMatch && statusMatch;
         });
+
         renderPokemonList(filteredPokemon);
     }
 
@@ -523,6 +544,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyFilters();
             }
         });
+
+        // --- Event delegation for status checkboxes ---
+        statusFilterFieldset.addEventListener('change', (event) => {
+            if (event.target.matches('input[type="checkbox"].status-filter-checkbox')) {
+                applyFilters();
+            }
+        });
+
         // Click listener for pokemon cards (using event delegation)
         pokedexListContainer.addEventListener('click', (event) => {
             const card = event.target.closest('.pokemon-card');

@@ -32,7 +32,7 @@ This project serves as a modern replacement for simpler static Pokedex implement
     *   Interactive Sprite Gallery (Animated preferred, Static fallback, Shiny, Other variants with hover titles)
     *   Physical Attributes (Height, Weight, Shape, Habitat)
     *   Abilities (including Hidden)
-    *   Base Stats with colored percentage bars
+    *   Base Stats with **colored percentage bars**
     *   Breeding Information (Gender Ratio, Egg Groups, Hatch Time)
     *   Species Information (Catch Rate, Base Happiness, Growth Rate, Base Exp)
     *   Classifications (Legendary, Mythical, Baby, Evolves From)
@@ -42,6 +42,7 @@ This project serves as a modern replacement for simpler static Pokedex implement
     *   Search by Name or National Pokédex ID.
     *   Filter by Generation (Dropdown).
     *   Filter by Type(s) using checkboxes with AND logic.
+    *   Filter by Status: Checkboxes for **Baby, Legendary, and Mythical** Pokémon (OR logic between statuses).
 *   **Performance Optimization:**
     *   Backend caching using **Redis** for both the aggregated Pokémon summary list and individual Pokémon details to minimize external API calls to PokeAPI.
     *   Configurable cache TTL (default 24 hours).
@@ -98,7 +99,7 @@ The backend provides the following endpoints, accessible via the Nginx proxy (e.
 | Method | Path                             | Description                                                                    | Query Params                 | Response Model              |
 | :----- | :------------------------------- | :----------------------------------------------------------------------------- | :--------------------------- | :-------------------------- |
 | `GET`  | `/` (Backend Root)               | Basic health check / welcome message for the API itself.                       | -                            | JSON `{message: str, ...}`  |
-| `GET`  | `/api/pokedex/summary`           | Get aggregated summary data (ID, Name, Gen, Types, Sprite) for all Pokémon.    | `force_refresh` (bool)       | `List[PokemonSummary]`      |
+| `GET`  | `/api/pokedex/summary`           | Get aggregated summary data (ID, Name, Gen, Types, Sprite, Status Flags) for all Pokémon.    | `force_refresh` (bool)       | `List[PokemonSummary]`      |
 | `GET`  | `/api/pokemon/{id_or_name}`      | Get detailed data for a specific Pokémon by ID or name.                        | `force_refresh` (bool)       | `PokemonDetail`             |
 | `GET`  | `/api/generations`               | Get a list of all Pokémon generations for filtering.                             | `force_refresh` (bool)       | `List[Generation]`          |
 | `GET`  | `/api/types`                     | Get a list of all Pokémon types for filtering.                                 | `force_refresh` (bool)       | `List[PokemonTypeFilter]`   |
