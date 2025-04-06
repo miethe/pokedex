@@ -44,6 +44,11 @@ async def _fetch_pokemon_summary(pokemon_id: int) -> Optional[PokemonSummary]:
     # Ensure HTTPS
     if sprite_url and sprite_url.startswith("http://"):
          sprite_url = sprite_url.replace("http://", "https://", 1)
+         
+    # --- Extract Status Flags ---
+    is_legendary = species_data.get('is_legendary', False)
+    is_mythical = species_data.get('is_mythical', False)
+    is_baby = species_data.get('is_baby', False)
 
     # Validate required fields exist before creating summary
     poke_id = pokemon_data.get('id')
@@ -57,7 +62,10 @@ async def _fetch_pokemon_summary(pokemon_id: int) -> Optional[PokemonSummary]:
         name=poke_name,
         generation_id=generation_id,
         types=types,
-        sprite_url=sprite_url # Add the sprite URL
+        sprite_url=sprite_url, # Add the sprite URL
+        is_legendary=is_legendary,
+        is_mythical=is_mythical,
+        is_baby=is_baby
     )
 
 

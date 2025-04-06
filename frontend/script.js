@@ -119,6 +119,16 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.id = pokemon.id;
             card.dataset.name = pokemon.name;
 
+            // --- Add Special Status Classes ---
+            if (pokemon.is_legendary) {
+                card.classList.add('is-legendary');
+            } else if (pokemon.is_mythical) { // Typically exclusive with legendary
+                card.classList.add('is-mythical');
+            }
+            if (pokemon.is_baby) {
+                card.classList.add('is-baby');
+            }
+
             // --- Replace placeholder with actual image ---
             const img = document.createElement('img');
             img.src = pokemon.sprite_url || 'placeholder-circle.png'; // Use sprite_url, provide fallback image if needed

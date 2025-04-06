@@ -17,6 +17,10 @@ class PokemonSummary(BaseModel):
     generation_id: int = Field(..., description="Generation ID")
     types: List[PokemonType] = Field(..., description="List of Pokémon types")
     sprite_url: Optional[str] = Field(None, description="Default front sprite URL (HTTPS)")
+    # --- NEW FLAGS ---
+    is_legendary: bool = Field(False, description="Is this a Legendary Pokémon?")
+    is_mythical: bool = Field(False, description="Is this a Mythical Pokémon?")
+    is_baby: bool = Field(False, description="Is this a Baby Pokémon?")
 
 class PokemonAbility(BaseModel):
     """Represents a Pokémon ability with minimal details for detail view."""

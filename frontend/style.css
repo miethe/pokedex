@@ -144,6 +144,8 @@ img {
     justify-content: center;
     min-height: 100px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    position: relative; /* Needed for absolute positioning of pseudo-elements */
+    overflow: hidden; /* Ensure pseudo-elements don't overflow card boundaries */
 }
 .pokemon-card:hover {
     transform: translateY(-4px);
@@ -186,6 +188,63 @@ img {
 }
 
 .pokemon-card.hidden { display: none; }
+
+/* --- Special Status Indicator Styles --- */
+
+/* Common style for the indicator pseudo-element */
+.pokemon-card.is-legendary::before,
+.pokemon-card.is-mythical::before,
+.pokemon-card.is-baby::before {
+    content: ''; /* Will be set by specific class */
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 1; /* Above sprite/content */
+    font-size: 1.3em; /* Adjust symbol size */
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    color: white; /* Default symbol color */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Make symbol stand out */
+    font-family: 'Arial Unicode MS', sans-serif; /* Font supporting symbols */
+    opacity: 0.85; /* Slightly transparent */
+}
+
+/* Specific symbols and background colors */
+.pokemon-card.is-legendary::before {
+    content: '★'; /* Star symbol */
+    background-color: rgba(218, 165, 32, 0.8); /* Gold background */
+    /* Optional: Add subtle border */
+    /* border: 1px solid rgba(0,0,0,0.2); */
+}
+
+.pokemon-card.is-mythical::before {
+    content: '✧'; /* Sparkle/Star symbol */
+    /* Use a different color, e.g., purple/magenta */
+    background-color: rgba(186, 85, 211, 0.8); /* Orchid/Purple background */
+}
+
+.pokemon-card.is-baby::before {
+    content: '🍼'; /* Baby bottle emoji (support varies) or a simple symbol */
+    /* Or use '●' (small circle) or '◦' */
+    /* content: '◦'; */
+    font-size: 1.1em; /* Slightly smaller for baby */
+    /* Use a light blue/pink color */
+    background-color: rgba(135, 206, 250, 0.8); /* Light Sky Blue background */
+     /* Ensure emoji renders well */
+     font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+}
+
+/* Optional: Add a subtle glow or border to the card itself */
+.pokemon-card.is-legendary {
+    border-color: #DAA520; /* Gold border */
+    box-shadow: 0 4px 10px rgba(218, 165, 32, 0.2);
+}
+.pokemon-card.is-mythical {
+    border-color: #BA55D3; /* Orchid border */
+    box-shadow: 0 4px 10px rgba(186, 85, 211, 0.2);
+}
+/* No extra border needed for baby, perhaps */
 
 /* ============================ */
 /* Modal Styles                 */
