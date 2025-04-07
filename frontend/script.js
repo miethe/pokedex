@@ -48,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             allPokemonData = summary;
+            
+            // --- Set Total Count FIRST ---
+            totalPokemonFetched = allPokemonData.length; // Ensure totalPokemonFetched is set BEFORE calling populateGenerationsFilter
             generationsData = generations.sort((a, b) => a.id - b.id);
             typesData = types.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -55,8 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
             totalPokemonFetched = allPokemonData.length;
 
             console.log(`Fetched ${allPokemonData.length} Pokémon summaries.`);
+            
+            // --- Now populate filters ---
             populateGenerationsFilter(generationsData);
             populateTypesFilter(typesData);
+
+            // --- Now render pokemon ---
             renderPokemonList(allPokemonData);
             updateResultsCounter(allPokemonData.length); // Initial counter update
             resultsCounter.style.display = 'flex'; // Show counter after initial load
@@ -90,11 +97,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function populateGenerationsFilter(generations) {
         generationFilter.innerHTML = '<option value="">All Generations</option>';
+
+        // Calculate total for "All Generations" using the global count
+        const allGenOption = generationFilter.querySelector('option[value=""]');
+        if (allGenOption) {
+            allGenOption.textContent = `All Generations (${totalPokemonFetched})`; // Add count here
+        }
+
         generations.forEach(gen => {
             const option = document.createElement('option');
             option.value = gen.id;
             const roman = gen.name.split('-')[1]?.toUpperCase() || gen.id; // Handle potential missing part
-            option.textContent = `Generation ${roman}`; // Simpler name
+            // --- Calculate count for this specific generation ---
+            const count = allPokemonData.filter(p => p.generation_id === gen.id).length;
+
+            // --- Update text content to include count ---
+            option.textContent = `Generation ${roman} (${count})`;
             generationFilter.appendChild(option);
         });
     }
@@ -329,9 +347,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Sprite Gallery ---
         const spriteGallery = document.createElement('div');
         spriteGallery.classList.add('sprite-gallery');
+
+        // Define potential sprites with titles and URLs
         const gallerySpritesData = [
             // Add sprites in desired order, checking if URL exists
             { type: "Animated Default", url: data.sprites?.animated_front_default },
+            { type: "Official Artwork", url: data.sprites?.official_artwork },
             { type: "Default", url: data.sprites?.front_default },
             { type: "Shiny", url: data.sprites?.front_shiny },
             { type: "Animated Shiny", url: data.sprites?.animated_front_shiny },
