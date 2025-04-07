@@ -98,6 +98,28 @@
     </button>
     <!-- End Scroll-to-top Button -->
 
+    <!-- Sprite Viewer Overlay -->
+    <div id="sprite-viewer-overlay" class="sprite-viewer-overlay">
+        <button id="sprite-viewer-close" class="sprite-viewer-close" title="Close Viewer">×</button>
+        <!-- Zoom Button -->
+        <button id="sprite-viewer-zoom" class="sprite-viewer-zoom" title="Zoom In">
+            <!-- Simple SVG for zoom-in icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                <path d="M10 18a7.952 7.952 0 0 0 4.897-1.688l4.396 4.396 1.414-1.414-4.396-4.396A7.952 7.952 0 0 0 18 10c0-4.411-3.589-8-8-8s-8 3.589-8 8 3.589 8 8 8zm0-14c3.309 0 6 2.691 6 6s-2.691 6-6 6-6-2.691-6-6 2.691-6 6-6z"/>
+                <path d="M11 9H9v2H7v-2H5v-2h2V5h2v2h2v2z"/>
+            </svg>
+            <!-- Will be replaced by zoom-out icon via JS -->
+        </button>
+        <!-- End Zoom Button -->
+        <button id="sprite-viewer-prev" class="sprite-viewer-nav prev" title="Previous Sprite">❮</button>
+        <div class="sprite-viewer-content">
+            <img id="full-sprite-image" src="" alt="Full Size Pokemon Sprite">
+            <div id="sprite-viewer-caption">Sprite Type</div>
+        </div>
+        <button id="sprite-viewer-next" class="sprite-viewer-nav next" title="Next Sprite">❯</button>
+    </div>
+    <!-- End Sprite Viewer Overlay -->
+
     <!-- Link to the JavaScript file -->
     <script src="script.js"></script>
 </body>

@@ -9,6 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDetailPokemon = null; // Keep track of which detail is shown
     let totalPokemonFetched = 0;
 
+    // --- Sprite Viewer State ---
+    let currentGallerySprites = []; // Holds {url, type} for the current Pokemon's gallery
+    let currentFullSpriteIndex = 0;
+    let isSpriteZoomed = false; // Track zoom state
+
     // --- DOM Element References ---
     const searchInput = document.getElementById('search-input');
     const generationFilter = document.getElementById('generation-filter');
@@ -27,8 +32,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modal specific elements
     const modal = document.getElementById('pokemon-detail-modal');
     const modalContent = document.getElementById('pokemon-detail-content'); // Content area inside modal
+
+    // --- Sprite Viewer References ---
+    const spriteViewerOverlay = document.getElementById('sprite-viewer-overlay');
+    const fullSpriteImage = document.getElementById('full-sprite-image');
+    const spriteViewerCaption = document.getElementById('sprite-viewer-caption');
+    const spriteViewerCloseBtn = document.getElementById('sprite-viewer-close');
+    const spriteViewerPrevBtn = document.getElementById('sprite-viewer-prev');
+    const spriteViewerNextBtn = document.getElementById('sprite-viewer-next');
+    const spriteViewerZoomBtn = document.getElementById('sprite-viewer-zoom');
+
     const detailLoadingIndicator = document.getElementById('detail-loading-indicator');
     const closeModalButton = modal.querySelector('.close-button');
+
+
+    // --- SVG Icons ---
+    const zoomInIconSVG = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+            <path d="M10 18a7.952 7.952 0 0 0 4.897-1.688l4.396 4.396 1.414-1.414-4.396-4.396A7.952 7.952 0 0 0 18 10c0-4.411-3.589-8-8-8s-8 3.589-8 8 3.589 8 8 8zm0-14c3.309 0 6 2.691 6 6s-2.691 6-6 6-6-2.691-6-6 2.691-6 6-6z"/>
+            <path d="M11 9H9v2H7v-2H5v-2h2V5h2v2h2v2z"/>
+        </svg>`;
+    const zoomOutIconSVG = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+             <path d="M10 18a7.952 7.952 0 0 0 4.897-1.688l4.396 4.396 1.414-1.414-4.396-4.396A7.952 7.952 0 0 0 18 10c0-4.411-3.589-8-8-8s-8 3.589-8 8 3.589 8 8 8zm0-14c3.309 0 6 2.691 6 6s-2.691 6-6 6-6-2.691-6-6 2.691-6 6-6z"/>
+            <path d="M5 9h10v2H5z"/>
+        </svg>`;
 
     // --- Initialization ---
     async function initializeApp() {
@@ -58,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             totalPokemonFetched = allPokemonData.length;
 
             console.log(`Fetched ${allPokemonData.length} Pokémon summaries.`);
-            
+
             // --- Now populate filters ---
             populateGenerationsFilter(generationsData);
             populateTypesFilter(typesData);
@@ -261,6 +289,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const debouncedApplyFilters = debounce(applyFilters, 300);
 
+    function formatGenerationId(genId) {
+        const romanMap = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX' };
+        return `Gen ${romanMap[genId] || genId}`; // Fallback to number if not in map
+    }
+
     // --- MODAL Handling & Rendering ---
 
     async function openPokemonDetailModal(pokemonIdOrName) {
@@ -314,10 +347,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPokemonDetail(data) {
         // NOTE: Assumes backend provides all necessary data including animated sprites, catch_rate etc.
+        modalContent.innerHTML = ''; // Clear previous
 
         // Create the main detail view container
         const detailView = document.createElement('div');
         detailView.classList.add('pokemon-detail-view');
+
+        // --- Title Bar ---
+        const titleBar = document.createElement('div');
+        titleBar.classList.add('detail-title-bar');
+        titleBar.innerHTML = `
+            <span class="detail-id">#${String(data.id).padStart(4, '0')}</span>
+            <h2 class="detail-name">${data.name}</h2>
+        `;
+        detailView.appendChild(titleBar);
+
+        // --- Generation Indicator ---
+        const genIndicator = document.createElement('span');
+        genIndicator.classList.add('detail-generation-indicator');
+        genIndicator.textContent = formatGenerationId(data.generation_id);
+        detailView.appendChild(genIndicator); // Append to main view for absolute positioning later
 
         // --- Top Sprite Section ---
         const topSpriteSection = document.createElement('div');
@@ -341,6 +390,12 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (officialArtwork) mainSprite.title = "Official Artwork";
         else if (defaultSprite) mainSprite.title = "Default";
         else mainSprite.title = "Placeholder";
+
+        // --- Attach listener to open sprite viewer ---
+        mainSprite.addEventListener('click', () => {
+            // Pass the same data used to build the gallery
+            openSpriteViewer(gallerySpritesData, initialSpriteSrc); // Pass gallery data and current src
+        });
 
         mainSpriteContainer.appendChild(mainSprite);
 
@@ -533,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
             link.dataset.id = pokemonId;
             link.classList.add('evolution-link');
             const img = document.createElement('img');
-             img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemonId}.png`;
+            img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemonId}.png`;
             img.alt = pokemonName;
             img.classList.add('evolution-sprite-small');
             img.loading = 'lazy';
@@ -585,6 +640,96 @@ document.addEventListener('DOMContentLoaded', () => {
         detailLoadingIndicator.style.display = isLoading ? 'block' : 'none';
     }
 
+    // --- Sprite Viewer Functions ---
+    function openSpriteViewer(galleryData, currentSpriteSrc) {
+        if (!galleryData || galleryData.length === 0) return; // No sprites to view
+
+        currentGallerySprites = galleryData; // Store the list for navigation
+        // Find the index of the sprite that was clicked (which is the main sprite's src)
+        currentFullSpriteIndex = currentGallerySprites.findIndex(sprite => sprite.url === currentSpriteSrc);
+        if (currentFullSpriteIndex === -1) {
+            currentFullSpriteIndex = 0; // Default to first if somehow not found
+        }
+
+        // --- Reset zoom state when opening ---
+        isSpriteZoomed = false;
+        fullSpriteImage.classList.remove('zoomed-in');
+        spriteViewerZoomBtn.innerHTML = zoomInIconSVG;
+        spriteViewerZoomBtn.title = "Zoom In";
+        // ----------------------------------
+
+        showSpriteAtIndex(currentFullSpriteIndex); // Display the initial sprite
+        // --- Use classList to control visibility ---
+        spriteViewerOverlay.classList.add('visible');
+        // spriteViewerOverlay.style.display = 'flex'; // Show the overlay
+        // Optional: Add keyboard listeners specifically when viewer is open
+        document.addEventListener('keydown', handleSpriteViewerKeydown);
+    }
+
+    function closeSpriteViewer() {
+        spriteViewerOverlay.classList.remove('visible');
+        // Reset zoom state visually (already done logically on open)
+        fullSpriteImage.classList.remove('zoomed-in');
+        isSpriteZoomed = false;
+        currentGallerySprites = []; // Clear the list
+        currentFullSpriteIndex = 0;
+        // Optional: Remove keyboard listeners
+        document.removeEventListener('keydown', handleSpriteViewerKeydown);
+    }
+
+    function showSpriteAtIndex(index) {
+        if (!currentGallerySprites || currentGallerySprites.length === 0) return;
+        // Ensure index wraps around
+        currentFullSpriteIndex = (index + currentGallerySprites.length) % currentGallerySprites.length;
+
+        const spriteToShow = currentGallerySprites[currentFullSpriteIndex];
+        fullSpriteImage.src = spriteToShow.url;
+        fullSpriteImage.alt = spriteToShow.type; // Update alt text
+        spriteViewerCaption.textContent = spriteToShow.type; // Update caption
+
+        // --- Optional: Reset zoom on sprite change? ---
+        // fullSpriteImage.classList.remove('zoomed-in');
+        // isSpriteZoomed = false;
+        // spriteViewerZoomBtn.innerHTML = zoomInIconSVG;
+        // spriteViewerZoomBtn.title = "Zoom In";
+        // -----------------------------------------
+    }
+
+    function showNextSprite() {
+        showSpriteAtIndex(currentFullSpriteIndex + 1);
+    }
+
+    function showPrevSprite() {
+        showSpriteAtIndex(currentFullSpriteIndex - 1);
+    }
+
+    // Handler for keyboard navigation in sprite viewer
+    function handleSpriteViewerKeydown(event) {
+        if (spriteViewerOverlay.classList.contains('visible')) { // Only act if viewer is open
+            if (event.key === 'ArrowRight') {
+                showNextSprite();
+            } else if (event.key === 'ArrowLeft') {
+                showPrevSprite();
+            } else if (event.key === 'Escape') {
+                closeSpriteViewer();
+            }
+        }
+    }
+
+    // --- Toggle Zoom Function ---
+    function toggleSpriteZoom() {
+        isSpriteZoomed = !isSpriteZoomed; // Toggle the state
+        if (isSpriteZoomed) {
+            fullSpriteImage.classList.add('zoomed-in');
+            spriteViewerZoomBtn.innerHTML = zoomOutIconSVG; // Set zoom-out icon
+            spriteViewerZoomBtn.title = "Zoom Out";
+        } else {
+            fullSpriteImage.classList.remove('zoomed-in');
+            spriteViewerZoomBtn.innerHTML = zoomInIconSVG; // Set zoom-in icon
+            spriteViewerZoomBtn.title = "Zoom In";
+        }
+    }
+
     // --- Event Listeners Setup ---
     function setupEventListeners() {
         searchInput.addEventListener('input', debouncedApplyFilters);
@@ -631,6 +776,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 closePokemonDetailModal();
             }
         });
+
+        // --- Sprite Viewer Listeners ---
+        spriteViewerCloseBtn.addEventListener('click', closeSpriteViewer);
+        spriteViewerNextBtn.addEventListener('click', showNextSprite);
+        spriteViewerPrevBtn.addEventListener('click', showPrevSprite);
+        spriteViewerZoomBtn.addEventListener('click', toggleSpriteZoom);
+        // Keyboard listener added dynamically when viewer opens
 
         // --- Scroll-to-Top Listener ---
         window.addEventListener('scroll', () => {

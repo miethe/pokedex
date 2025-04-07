@@ -10,12 +10,12 @@ RUN rm /etc/nginx/conf.d/default.conf
 COPY ./frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy the static frontend files (HTML, CSS, JS) into the Nginx web root directory
-COPY ./frontend /usr/share/nginx/html
+#COPY ./frontend /usr/share/nginx/html
 
 # Copy local sprites into the image
 # Assumes sprites repo was cloned into ./frontend/assets/sprites
 # The target path MUST match the Nginx root + the LOCAL_SPRITE_BASE_PATH used in config.py
-COPY ./frontend/assets/sprites /usr/share/nginx/html/assets/sprites
+#COPY ./frontend/assets/sprites /usr/share/nginx/html/assets/sprites
 
 # Expose port 80
 EXPOSE 80

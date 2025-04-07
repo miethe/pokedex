@@ -318,6 +318,7 @@ img {
     border-radius: 10px; /* Rounded corners */
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.25);
     overflow: hidden; /* Clip inner content like header bar */
+    padding-top: 45px; /* Make space for the title bar below the red bar */
 }
 
 .close-button {
@@ -343,6 +344,11 @@ img {
     height: 45px; /* Height of the red bar */
     background-color: #e74c3c; /* Pokedex Red */
     border-bottom: 3px solid #c0392b; /* Darker red border */
+    position: absolute; /* Take it out of flow */
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1; /* Below close button but above content initially */
 }
 
 /* --- Action Buttons Styling --- */
@@ -397,6 +403,44 @@ img {
     position: relative; /* For loading indicator */
 }
 
+/* --- NEW: Detail Title Bar --- */
+.detail-title-bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: center; /* Center title elements */
+    padding: 10px 15px;
+    margin-bottom: 10px; /* Space below title */
+    text-align: center;
+    border-bottom: 1px solid #eee; /* Separator line */
+}
+.detail-title-bar .detail-id {
+    font-size: 1.6em; /* Larger ID */
+    font-weight: bold;
+    color: #888; /* Grey ID */
+    margin-right: 8px;
+}
+.detail-title-bar .detail-name {
+    font-size: 2em; /* Larger Name */
+    font-weight: bold;
+    color: #333;
+    margin: 0; /* Reset margin */
+    text-transform: capitalize;
+}
+
+/* --- NEW: Generation Indicator --- */
+.detail-generation-indicator {
+    position: absolute;
+    top: 10px; /* Adjust position as needed */
+    right: 15px; /* Adjust position */
+    background-color: rgba(0, 0, 0, 0.05); /* Subtle background */
+    color: #666;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 500;
+    border: 1px solid #ddd;
+}
+
 #detail-loading-indicator {
     position: absolute;
     top: 50%;
@@ -428,6 +472,8 @@ img {
     padding: 15px 0;
     border-bottom: 1px solid #eee;
     position: relative; /* Context for positioning sprite */
+    margin-top: 10px; /* Add some space below title bar */
+    padding-top: 0; /* Remove previous padding */
 }
 
 .main-sprite-container {
@@ -439,12 +485,17 @@ img {
     border-radius: 50%;
     border: 1px solid #ddd;
     box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
-    margin-top: -65px;
     margin-bottom: 15px;
     z-index: 10;
     /* Reduce padding to give sprite more internal space */
     padding: 8px; /* Adjust as needed */
     overflow: hidden; /* Ensure sprite doesn't overflow circle */
+    margin-top: 0; /* Reset margin-top, handled by section now */
+    cursor: pointer; /* Indicate main sprite is clickable */
+    transition: transform 0.2s ease;
+}
+.main-sprite-container:hover {
+    transform: scale(1.03); /* Slight grow on hover */
 }
 
 .main-sprite {
@@ -672,6 +723,143 @@ img {
 .type-dragon { background-color: #6F35FC; } .type-dark { background-color: #705746; }
 .type-steel { background-color: #B7B7CE; } .type-fairy { background-color: #D685AD; }
 
+
+/* --- NEW: Sprite Viewer Overlay Styles --- */
+.sprite-viewer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85); /* Darker overlay */
+    display: flex; /* Use flex for centering content */
+    justify-content: center;
+    align-items: center;
+    z-index: 1050; /* Higher than the detail modal */
+    padding: 40px 60px; /* Padding around the content */
+    /* Allow vertical scrolling if content overflows */
+    overflow-y: auto;
+    opacity: 0; /* Start hidden for transition */
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s; /* Delay hiding visibility */
+}
+.sprite-viewer-overlay.visible { /* Class added by JS to show */
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s; /* Show immediately */
+}
+
+.sprite-viewer-content {
+    position: relative; /* Context for caption */
+    text-align: center;
+    margin: 20px 0;
+}
+
+#full-sprite-image {
+    display: block;
+    margin: 0 auto; /* Center */
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    background-color: rgba(255, 255, 255, 0.1); /* Slight background behind sprite */
+    border-radius: 5px;
+    transition: min-width 0.3s ease-in-out; /* Smooth transition for zoom */
+
+    /* --- Size Constraints - Revised --- */
+    /* 1. Limit width by viewport width minus padding/nav buttons */
+    max-width: calc(100vw - 60px); /* (60px*2 padding + ~20px*2 for nav buttons) Adjust as needed */
+
+    /* 2. Set a desired "base" or minimum height/width (optional) */
+    min-width: 30vw;
+    /* min-height: 300px; */
+
+    /* 3. Set a LARGE max-height, relying on overlay scroll */
+    max-height: 150vh; /* Allow image to be much taller than viewport */
+
+    /* 4. Let width/height auto-adjust based on aspect ratio */
+    width: auto;
+    height: auto;
+
+    /* Alternative: Force a specific height and let width be auto */
+    /* height: 70vh; */ /* Example: Make height 70% of viewport height */
+    /* width: auto; */
+    /* max-width: calc(100vw - 160px); */ /* Still limit width */
+}
+#full-sprite-image.zoomed-in {
+    min-width: 50vw; /* Larger minimum width when zoomed */
+}
+
+#sprite-viewer-caption {
+    color: white;
+    margin-top: 10px;
+    font-size: 1.1em;
+    text-shadow: 1px 1px 2px black;
+}
+
+.sprite-viewer-close {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 3em;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.2s ease;
+}
+.sprite-viewer-close:hover {
+    color: white;
+}
+
+.sprite-viewer-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 2.5em;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 10px 5px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+.sprite-viewer-nav:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+    opacity: 1;
+}
+.sprite-viewer-nav.prev { left: 15px; }
+.sprite-viewer-nav.next { right: 15px; }
+
+/* --- Zoom Button Styles --- */
+.sprite-viewer-zoom {
+    position: absolute;
+    top: 15px; /* Align with close button */
+    right: 60px; /* Position next to close button */
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    padding: 5px;
+    line-height: 0; /* Prevent extra space */
+    transition: color 0.2s ease;
+    z-index: 1051; /* Ensure it's clickable */
+}
+.sprite-viewer-zoom:hover {
+    color: white;
+}
+.sprite-viewer-zoom svg {
+    width: 24px; /* Control icon size */
+    height: 24px;
+    vertical-align: middle; /* Align icon nicely */
+}
+
 /* --- Scroll-to-Top Button Styling --- */
 #scroll-to-top {
     position: fixed; /* Fixed position relative to viewport */
@@ -720,5 +908,25 @@ img {
         margin-top: 10px; /* Add space above buttons */
         width: 100%; /* Make buttons take full width */
         justify-content: center; /* Center buttons */
+    }
+    .detail-title-bar { flex-direction: column; gap: 0px; }
+    .detail-title-bar .detail-name { font-size: 1.6em; }
+    .detail-title-bar .detail-id { font-size: 1.3em; }
+    .detail-generation-indicator { top: 5px; right: 8px; font-size: 0.7em; padding: 2px 5px; }
+    #sprite-viewer-caption { font-size: 1em; }
+    .sprite-viewer-nav { font-size: 2em; padding: 8px 4px;}
+    .sprite-viewer-overlay {
+         padding: 20px; /* Reduce padding */
+    }
+    .sprite-viewer-zoom {
+       top: 12px;
+       right: 55px; /* Adjust position relative to close */
+    }
+    #full-sprite-image {
+        min-width: 50vw; /* Start more zoomed on mobile? Adjust as needed */
+        max-width: calc(100vw - 60px); /* Smaller max width calc */
+    }
+    #full-sprite-image.zoomed-in {
+        min-width: 80vw; /* Larger zoom target on mobile */
     }
 }
