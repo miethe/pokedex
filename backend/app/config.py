@@ -3,11 +3,19 @@
 import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
+from typing import Literal, Optional
 
 # Load environment variables from .env file if it exists
 # Useful for local development
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
+
+# --- Add Constants for Base Paths ---
+# Note: Ensure this matches the structure after cloning the sprites repo
+POKEAPI_SPRITE_BASE_URL: str = "https://raw.githubusercontent.com/PokeAPI/sprites/master/"
+# This path MUST match how Nginx will serve it relative to its root
+# Nginx root is /usr/share/nginx/html, sprites are copied to /assets/sprites
+LOCAL_SPRITE_BASE_PATH: str = "/assets/sprites/"
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -26,6 +34,10 @@ class Settings(BaseSettings):
     # Max Pokemon ID to fetch for summary (adjust as new generations are added)
     # Gen 9 ends at 1025 (as of early 2024), let's add some buffer
     max_pokemon_id_to_fetch: int = 1025 # Example: covers up to Paldean Pokémon + some buffer
+
+    # --- Sprite Setting ---
+    # Use 'local' to serve from /assets/sprites, 'remote' to use PokeAPI URLs
+    sprite_source_mode: Literal['local', 'remote'] = "remote" # Default to remote
 
     class Config:
         # Specifies the .env file encoding

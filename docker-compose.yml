@@ -53,6 +53,11 @@ services:
       - backend # Nginx proxy needs the backend to be available
     networks:
       - pokedex_network
+    # --- Optional: Mount local assets for development ---
+    # This allows changing frontend files (HTML, CSS, JS, Sprites)
+    # without rebuilding the frontend image. Remove for production.
+    volumes:
+       - ./frontend:/usr/share/nginx/html:ro,Z
 
 # Define Networks
 networks:

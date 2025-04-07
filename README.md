@@ -146,6 +146,13 @@ pokedex_project/
 *   **Git:** For cloning the repository.
 *   **(Optional) Python 3.10+ and pip:** If you want to run the backend locally for development without Docker.
 *   **(Optional) Redis Client:** (`redis-cli`) for inspecting the cache directly.
+*   **Cloned Sprite Assets:** If you want to use a local copy of the Pokémon sprites, you must clone the repository into the `frontend/assets` (location is important!) directory. The repo is large (~1.5GB), so only recommended for production. You can also use the remote api instead:
+    ```bash
+    cd frontend # Navigate to frontend directory
+    mkdir -p assets
+    git clone https://github.com/PokeAPI/sprites.git ./assets/sprites
+    cd .. # Go back to project root
+    ```
 
 ### Installation & Setup
 
@@ -164,6 +171,11 @@ pokedex_project/
         ```
         (This URL uses the service name `redis` defined in `docker-compose.yml` and the standard Redis port `6379`.)
     *   **Important:** Add `backend/.env` to your `.gitignore` file if it's not already there to avoid committing sensitive information.
+    *   **(Optional) Configure Sprite Serving:** To serve sprites locally instead of using remote URLs (recommended for performance/production), add the following line to `backend/.env`:
+        ```dotenv
+        SPRITE_SOURCE_MODE=local
+        ```
+        (If omitted or set to `remote`, the application will use URLs from PokeAPI).
 
 ## Running the Application
 
@@ -197,6 +209,8 @@ This is the easiest way to run the entire application stack (frontend, backend, 
 6.  **Updating a Single Service (e.g., after backend code changes):**
     *   `docker-compose up --build -d backend`
     *   `podman-compose up --build -d backend`
+
+**Development Note:** The provided `docker-compose.yml` includes an optional volume mount for the `./frontend` directory. This allows you to make changes to HTML, CSS, JavaScript, or the locally cloned sprites in `frontend/assets/sprites` and see the changes reflected in your browser after a refresh, without needing to rebuild the `frontend` Docker image (`podman-compose up -d frontend`). For production builds, this volume mount should typically be removed, and the `COPY` instructions in `Dockerfile.frontend` will be used.
 
 ### Local Backend Development (Optional)
 

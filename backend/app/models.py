@@ -4,6 +4,8 @@ import logging
 from pydantic import BaseModel, Field, validator, root_validator
 from typing import List, Optional, Any
 
+from .config import settings, POKEAPI_SPRITE_BASE_URL, LOCAL_SPRITE_BASE_PATH # Import settings & constants
+
 logger = logging.getLogger(__name__)
 
 class PokemonType(BaseModel):
@@ -97,6 +99,27 @@ class PokemonSprites(BaseModel):
         if isinstance(value, str) and value.startswith("http://"):
             return value.replace("http://", "https://", 1) # Replace only the first occurrence
         return value
+    
+    # --- Post-validation Root Validator for URL Transformation ---
+    @root_validator(skip_on_failure=True) # Use default post=True, skip if pre-validators fail
+    def transform_urls_if_local(cls, values: dict):
+        if settings.sprite_source_mode == 'local':
+            logger.debug(f"Transforming sprite URLs to local paths. Base: {LOCAL_SPRITE_BASE_PATH}")
+            for key, url in values.items():
+                if isinstance(url, str) and url.startswith(POKEAPI_SPRITE_BASE_URL):
+                    # Replace base URL with local path base
+                    # Example: https://.../master/sprites/pokemon/1.png -> /assets/sprites/sprites/pokemon/1.png
+                    relative_path = url.removeprefix(POKEAPI_SPRITE_BASE_URL)
+                    values[key] = f"{LOCAL_SPRITE_BASE_PATH}{relative_path}"
+                elif isinstance(url, str) and not url.startswith(('/', 'http')):
+                     # Handle cases where a relative path might already exist unexpectedly? Optional.
+                     logger.warning(f"Sprite URL '{url}' for key '{key}' is not absolute. Skipping transformation.")
+        # Else (mode is remote), return values unchanged
+        return values
+    
+    class Config:
+         # Add configuration if needed, e.g., validate_assignment=True if modifying fields directly
+         pass # Keep empty or add as needed
 
 class PokemonDetail(BaseModel):
     """Detailed data for a single Pokémon."""
