@@ -345,6 +345,51 @@ img {
     border-bottom: 3px solid #c0392b; /* Darker red border */
 }
 
+/* --- Action Buttons Styling --- */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-left: auto; /* Push buttons to the right within flex controls */
+    padding-left: 15px; /* Space from other filters */
+}
+
+.action-buttons button {
+    padding: 8px 12px;
+    font-size: 0.85em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f8f8f8;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.action-buttons button:hover {
+    background-color: #e9e9e9;
+    border-color: #aaa;
+}
+
+/* --- Results Counter Styling --- */
+.results-counter {
+    display: flex; /* Use flex to align items */
+    align-items: center; /* Vertically center items */
+    margin: 15px 0 20px 0; /* Space above/below counter */
+    color: #6c757d; /* Grey text color */
+    font-size: 0.9em;
+}
+
+.results-counter .line {
+    flex-grow: 1; /* Lines take up available space */
+    height: 1px; /* Line thickness */
+    background-color: #e0e0e0; /* Light grey line color */
+}
+
+#counter-text {
+    padding: 0 15px; /* Space around the text */
+    white-space: nowrap; /* Prevent text wrapping */
+    font-style: italic;
+}
+
 /* Container for actual detail content below header */
 #pokemon-detail-content {
     padding: 20px 25px; /* Padding for the detail content */
@@ -627,6 +672,31 @@ img {
 .type-dragon { background-color: #6F35FC; } .type-dark { background-color: #705746; }
 .type-steel { background-color: #B7B7CE; } .type-fairy { background-color: #D685AD; }
 
+/* --- Scroll-to-Top Button Styling --- */
+#scroll-to-top {
+    position: fixed; /* Fixed position relative to viewport */
+    bottom: 25px;
+    right: 25px;
+    z-index: 999; /* Below modal but above most content */
+
+    background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent dark background */
+    color: white;
+    border: none;
+    border-radius: 50%; /* Circular button */
+    width: 45px;
+    height: 45px;
+    font-size: 1.5em; /* Size of the arrow */
+    line-height: 45px; /* Center arrow vertically */
+    text-align: center;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+#scroll-to-top:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.8);
+}
 
 /* --- Responsive adjustments for Modal --- */
 @media (max-width: 900px) {
@@ -636,7 +706,7 @@ img {
 
 @media (max-width: 600px) {
     .main-header h1 { font-size: 1.6em; }
-    .controls { flex-direction: column; align-items: stretch; }
+    .controls { flex-direction: column; align-items: stretch; position: relative; /* Context for action buttons if needed */ }
     .modal-content { margin: 10px auto; width: calc(100% - 20px); } /* Near full width on mobile */
     #pokemon-detail-content { padding: 15px; }
     .main-sprite-container { width: 140px; height: 140px; margin-top: -55px; }
@@ -644,4 +714,11 @@ img {
     .detail-main-grid { grid-template-columns: 1fr; } /* Single column */
     .evolution-chain-wrapper { flex-direction: column; gap: 15px; align-items: center; }
     .evolution-arrow { transform: rotate(90deg); line-height: normal; margin: 5px 0; }
+    .action-buttons {
+        /* Reset margin, maybe place differently */
+        margin-left: 0;
+        margin-top: 10px; /* Add space above buttons */
+        width: 100%; /* Make buttons take full width */
+        justify-content: center; /* Center buttons */
+    }
 }

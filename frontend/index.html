@@ -49,7 +49,22 @@
                 </div>
             </fieldset>
             <!-- End Status Filter -->
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button id="clear-filters-button" title="Clear Type and Status Filters">Clear Filters</button>
+                <button id="reset-search-button" title="Clear Search Box">Reset Search</button>
+            </div>
+            <!-- End Action Buttons -->
+        </div> <!-- End Controls -->
+
+        <!-- Results Counter -->
+        <div id="results-counter" class="results-counter" style="display: none;">
+            <span class="line"></span>
+            <span id="counter-text"></span>
+            <span class="line"></span>
         </div>
+        <!-- End Results Counter -->
 
         <!-- Loading Indicator for the list -->
         <div id="loading-indicator" style="display: none;">Loading Pokémon... Please wait.</div>
@@ -75,6 +90,13 @@
             </div>
         </div>
     </div>
+
+    <!-- Scroll-to-top Button -->
+    <button id="scroll-to-top" title="Scroll back to top" style="display: none;">
+        <!-- Use a simple arrow symbol, or replace with SVG/Icon Font later -->
+        ↑
+    </button>
+    <!-- End Scroll-to-top Button -->
 
     <!-- Link to the JavaScript file -->
     <script src="script.js"></script>

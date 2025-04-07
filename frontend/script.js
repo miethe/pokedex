@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let generationsData = [];
     let typesData = [];
     let currentDetailPokemon = null; // Keep track of which detail is shown
+    let totalPokemonFetched = 0;
 
     // --- DOM Element References ---
     const searchInput = document.getElementById('search-input');
@@ -17,6 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusFilterFieldset = document.getElementById('status-filter');
     const pokedexListContainer = document.getElementById('pokedex-list');
     const loadingIndicator = document.getElementById('loading-indicator');
+    const resultsCounter = document.getElementById('results-counter');
+    const counterText = document.getElementById('counter-text');
+    const clearFiltersButton = document.getElementById('clear-filters-button');
+    const resetSearchButton = document.getElementById('reset-search-button');
+    const scrollToTopButton = document.getElementById('scroll-to-top');
 
     // Modal specific elements
     const modal = document.getElementById('pokemon-detail-modal');
@@ -28,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function initializeApp() {
         console.log("Initializing Pokedex App...");
         showListLoading(true);
+        resultsCounter.style.display = 'none'; // Hide counter initially
 
         try {
             const [summary, generations, types] = await Promise.all([
@@ -44,10 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
             generationsData = generations.sort((a, b) => a.id - b.id);
             typesData = types.sort((a, b) => a.name.localeCompare(b.name));
 
+            // --- Set Total Count ---
+            totalPokemonFetched = allPokemonData.length;
+
             console.log(`Fetched ${allPokemonData.length} Pokémon summaries.`);
             populateGenerationsFilter(generationsData);
             populateTypesFilter(typesData);
             renderPokemonList(allPokemonData);
+            updateResultsCounter(allPokemonData.length); // Initial counter update
+            resultsCounter.style.display = 'flex'; // Show counter after initial load
             setupEventListeners();
 
         } catch (error) {
@@ -203,6 +215,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         renderPokemonList(filteredPokemon);
+        // --- Update counter after rendering ---
+        updateResultsCounter(filteredPokemon.length);
+    }
+
+    // --- Update Results Counter Function ---
+    function updateResultsCounter(displayedCount) {
+        const selectedGeneration = generationFilter.value;
+        let potentialTotal = totalPokemonFetched; // Start with overall total
+
+        // Adjust potential total if a specific generation is selected
+        if (selectedGeneration) {
+            potentialTotal = allPokemonData.filter(p => p.generation_id === parseInt(selectedGeneration)).length;
+        }
+        // Else (All Generations selected), potentialTotal remains totalPokemonFetched
+
+        counterText.textContent = `🔍 ${displayedCount} / ${potentialTotal} Pokémon Displayed`;
+        resultsCounter.style.display = 'flex'; // Ensure it's visible
     }
 
     function debounce(func, delay) {
@@ -552,6 +581,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // --- Clear/Reset Button Listeners ---
+        clearFiltersButton.addEventListener('click', () => {
+            // Clear type checkboxes
+            typeFilterContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => cb.checked = false);
+            // Clear status checkboxes
+            statusFilterContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => cb.checked = false);
+            // Re-apply filters
+            applyFilters();
+        });
+
         // Click listener for pokemon cards (using event delegation)
         pokedexListContainer.addEventListener('click', (event) => {
             const card = event.target.closest('.pokemon-card');
@@ -570,6 +609,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (event.key === 'Escape' && modal.style.display === 'block') {
                 closePokemonDetailModal();
             }
+        });
+
+        // --- Scroll-to-Top Listener ---
+        window.addEventListener('scroll', () => {
+            // Show button if scrolled down more than, say, 300 pixels
+            if (window.scrollY > 300) {
+                scrollToTopButton.style.display = 'block';
+            } else {
+                scrollToTopButton.style.display = 'none';
+            }
+        });
+
+        scrollToTopButton.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Smooth scroll to top
         });
     }
 
