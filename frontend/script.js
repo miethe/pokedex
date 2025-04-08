@@ -45,6 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const detailLoadingIndicator = document.getElementById('detail-loading-indicator');
     const closeModalButton = modal.querySelector('.close-button');
 
+    // --- Maintenance References ---
+    const maintenanceOverlay = document.getElementById('maintenance-overlay');
+    const maintenanceMessageElement = document.getElementById('maintenance-message');
+
 
     // --- SVG Icons ---
     const zoomInIconSVG = `
@@ -65,27 +69,50 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsCounter.style.display = 'none'; // Hide counter initially
 
         try {
-            const [summary, generations, types] = await Promise.all([
-                fetchData(`${API_BASE_URL}/pokedex/summary`),
-                fetchData(`${API_BASE_URL}/generations`),
-                fetchData(`${API_BASE_URL}/types`)
-            ]);
+            // Use Promise.allSettled to handle potential maintenance state from one fetch
+            const results = await Promise.allSettled([
+                 fetchData(`${API_BASE_URL}/pokedex/summary`),
+                 fetchData(`${API_BASE_URL}/generations`),
+                 fetchData(`${API_BASE_URL}/types`)
+             ]);
 
-            if (!summary || !generations || !types) {
+             if (!results) {
+                 throw new Error("Failed to fetch initial data from the backend API.");
+             }
+
+             const summaryResult = results[0];
+             const generationsResult = results[1];
+             const typesResult = results[2];
+
+             // Check if ANY call returned the maintenance signal
+             if (results.some(r => r.status === 'fulfilled' && r.value?.maintenance)) {
+                  console.log("Initialization halted due to maintenance state.");
+                  // Maintenance overlay is already shown by fetchData
+                  return; // Stop initialization
+             }
+
+            if (!summaryResult || !generationsResult || !typesResult) {
                 throw new Error("Failed to fetch initial data from the backend API.");
             }
 
-            allPokemonData = summary;
-            
-            // --- Set Total Count FIRST ---
-            totalPokemonFetched = allPokemonData.length; // Ensure totalPokemonFetched is set BEFORE calling populateGenerationsFilter
-            generationsData = generations.sort((a, b) => a.id - b.id);
-            typesData = types.sort((a, b) => a.name.localeCompare(b.name));
+            // Check for actual fetch errors after filtering out maintenance
+            if (summaryResult.status === 'rejected' || !summaryResult.value) {
+                 throw summaryResult.reason || new Error("Failed to fetch Pokémon summary.");
+            }
+             if (generationsResult.status === 'rejected' || !generationsResult.value) {
+                 throw generationsResult.reason || new Error("Failed to fetch generations.");
+            }
+             if (typesResult.status === 'rejected' || !typesResult.value) {
+                 throw typesResult.reason || new Error("Failed to fetch types.");
+            }
 
-            // --- Set Total Count ---
+            // If all successful and not maintenance:
+            allPokemonData = summaryResult.value;
             totalPokemonFetched = allPokemonData.length;
+            generationsData = generationsResult.value.sort((a, b) => a.id - b.id);
+            typesData = typesResult.value.sort((a, b) => a.name.localeCompare(b.name));
 
-            console.log(`Fetched ${allPokemonData.length} Pokémon summaries.`);
+            console.log(`Fetched ${totalPokemonFetched} Pokémon summaries.`);
 
             // --- Now populate filters ---
             populateGenerationsFilter(generationsData);
@@ -99,7 +126,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error("Initialization failed:", error);
-            pokedexListContainer.innerHTML = `<p class="error">Could not load Pokedex data. Please try refreshing the page. (${error.message})</p>`;
+            // Avoid showing generic error if maintenance overlay is already up
+            if (maintenanceOverlay.style.display !== 'flex') {
+                pokedexListContainer.innerHTML = `<p class="error">Could not load Pokedex data. Please try refreshing the page. (${error.message})</p>`;
+            }
         } finally {
             showListLoading(false);
         }
@@ -109,15 +139,40 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchData(url) {
         try {
             const response = await fetch(url);
+
+            // --- Check for 503 Service Unavailable ---
+            if (response.status === 503) {
+                try {
+                    const errorData = await response.json();
+                    if (errorData && errorData.status === 'refreshing') {
+                        console.warn("Backend is refreshing data. Displaying maintenance message.");
+                        showMaintenanceOverlay(true, errorData.message);
+                        // Return a special value or null to indicate handled maintenance state
+                        return { maintenance: true }; // Signal maintenance
+                    }
+                } catch (e) { /* Ignore if body isn't JSON, proceed as normal 503 */ }
+
+                // If it's a 503 but not the specific 'refreshing' status
+                throw new Error(`Service temporarily unavailable (Status: 503)`);
+            }
+
+            // --- Handle other non-OK responses ---
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`HTTP error ${response.status} for ${url}: ${errorText}`);
                 throw new Error(`Failed to fetch ${url} (Status: ${response.status})`);
             }
+
+            // If we reach here, the request was successful (not 503 refreshing)
+            // Hide maintenance overlay if it was visible
+            showMaintenanceOverlay(false);
+
             return await response.json();
         } catch (error) {
             console.error(`Error fetching ${url}:`, error);
-            throw error;
+            // Don't show maintenance overlay for general errors
+            // Optionally show a different generic error message to the user here
+            throw error; // Re-throw error to be handled by caller
         }
     }
 
@@ -573,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Evolution Chain Rendering (Keep the version from the previous step - handles horizontal layout)
-     function renderEvolutionChain(chainData, containerElement) {
+    function renderEvolutionChain(chainData, containerElement) {
         containerElement.innerHTML = ''; // Clear loading text
         const chainWrapper = document.createElement('div');
         chainWrapper.classList.add('evolution-chain-wrapper');
@@ -638,6 +693,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function showDetailLoading(isLoading) {
         detailLoadingIndicator.style.display = isLoading ? 'block' : 'none';
+    }
+
+    // --- Show/Hide Maintenance Overlay ---
+    function showMaintenanceOverlay(show, message = "The Pokedex data is being updated. Please check back shortly!") {
+        if (show) {
+            maintenanceMessageElement.textContent = message;
+            maintenanceOverlay.style.display = 'flex'; // Use flex to center content
+            // Optionally disable background scroll
+            // document.body.style.overflow = 'hidden';
+        } else {
+            maintenanceOverlay.style.display = 'none';
+            // Optionally re-enable background scroll
+            // document.body.style.overflow = '';
+        }
     }
 
     // --- Sprite Viewer Functions ---

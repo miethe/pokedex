@@ -3,6 +3,7 @@
 import logging
 from typing import List, Optional
 from functools import lru_cache # Consider using Redis cache instead of in-memory lru_cache if needed across instances
+import asyncio
 
 from .pokeapi_client import fetch_pokeapi
 from .cache import get_cache, set_cache, clear_cache
@@ -67,7 +68,34 @@ async def _fetch_pokemon_summary(pokemon_id: int) -> Optional[PokemonSummary]:
         is_mythical=is_mythical,
         is_baby=is_baby
     )
+    
+# --- Helper function to fetch single generation detail ---
+async def _fetch_generation_detail(gen_info: dict) -> Optional[Generation]:
+    """Fetches details for a single generation to get its region."""
+    gen_url = gen_info.get('url')
+    if not gen_url:
+        logger.warning(f"Missing URL for generation: {gen_info.get('name')}")
+        return None
 
+    gen_detail_data = await fetch_pokeapi(gen_url)
+    if not gen_detail_data:
+        logger.warning(f"Failed to fetch details for generation URL: {gen_url}")
+        return None
+
+    gen_id_str = gen_detail_data.get('name') # e.g., generation-i
+    gen_id = _generation_name_to_id(gen_id_str)
+    region_info = gen_detail_data.get('main_region')
+    region_name = region_info.get('name', 'unknown') if region_info else 'unknown' # Default if missing
+
+    if gen_id is None:
+         logger.warning(f"Could not parse generation ID from detail fetch: {gen_id_str}")
+         return None
+
+    return Generation(
+        id=gen_id,
+        name=gen_id_str,
+        region_name=region_name
+    )
 
 async def get_pokedex_summary_data(force_refresh: bool = False) -> Optional[List[PokemonSummary]]:
     """
@@ -111,7 +139,6 @@ async def get_pokedex_summary_data(force_refresh: bool = False) -> Optional[List
             return None # Indicate failure
 
     return None # Should not reach here under normal circumstances, but for type safety
-
 
 async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool = False) -> Optional[PokemonDetail]:
     """
@@ -267,7 +294,6 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
     logger.error(f"Reached end of get_pokemon_detail_data for '{pokemon_id_or_name}' without returning data.")
     return None # Should not reach here, but for type safety
 
-
 async def get_all_generations_data(force_refresh: bool = False) -> Optional[List[Generation]]:
     """Fetches and caches data for all Pokemon generations."""
     if not force_refresh:
@@ -329,7 +355,6 @@ async def get_all_types_data(force_refresh: bool = False) -> Optional[List[Pokem
             logger.error("Failed to fetch Pokemon types data from PokeAPI.")
             return None
     return None
-
 
 @lru_cache(maxsize=16) # Cache results for generation names
 def _generation_name_to_id(generation_name: Optional[str]) -> Optional[int]:

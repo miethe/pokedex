@@ -1,12 +1,14 @@
 # backend/app/main.py
 
-from fastapi import FastAPI, HTTPException, Path, Query
+from fastapi import FastAPI, HTTPException, Path, Query, Request, status
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 from typing import List, Optional, Union
+import time
 
 # Import necessary components from other modules
-from .cache import create_redis_pool, close_redis_pool, redis_pool
+from .cache import create_redis_pool, close_redis_pool, redis_pool, clear_cache
 from .pokeapi_client import close_client, get_client
 from .pokedex_data import (
     get_pokedex_summary_data,
@@ -25,9 +27,15 @@ from .config import settings # If needed for configuration directly
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+# --- Global State Flag ---
+IS_REFRESHING: bool = False
+MAINTENANCE_MESSAGE = "Pokedex data is currently being refreshed to bring you the latest info. Please try again in a few moments."
+
 # Lifespan context manager (from Step 2)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global IS_REFRESHING # Declare intent to modify global variable
+    
     # Startup phase
     logger.info("Application startup...")
     try:
@@ -47,25 +55,40 @@ async def lifespan(app: FastAPI):
 
     # --- Pre-populate Cache on Startup (Optional but recommended for summary) ---
     logger.info("Attempting to pre-populate Pokedex summary cache on startup...")
+    # Set flag only if we actually need to refresh
+    summary_exists = False
     try:
+        # Check cache *before* setting the flag
         # Check if summary is already cached, only fetch if not present
-        summary_exists = await get_pokedex_summary_data(force_refresh=False) is not None
-        if not summary_exists:
+        summary_cached_data = await get_pokedex_summary_data(force_refresh=False)
+        summary_exists = summary_cached_data is not None
+    except Exception as e:
+         logger.error(f"Error checking initial cache state: {e}", exc_info=True)
+         summary_exists = False # Assume not cached if check fails
+    
+    if not summary_exists:
+        IS_REFRESHING = True # Set flag before long operation
+        logger.warning("CACHE REFRESH STARTING (startup): Pokedex summary cache needs population.")
+        # time.sleep(15) # Optional: Simulate long refresh for testing
+        try:
             logger.info("Pokedex summary not found in cache. Fetching now...")
             await get_pokedex_summary_data(force_refresh=True)
-        else:
-            logger.info("Pokedex summary already exists in cache. Skipping pre-population.")
-
-        # Optionally pre-populate generations and types too
-        gen_exists = await get_all_generations_data(force_refresh=False) is not None
-        if not gen_exists: await get_all_generations_data(force_refresh=True)
-        type_exists = await get_all_types_data(force_refresh=False) is not None
-        if not type_exists: await get_all_types_data(force_refresh=True)
-        logger.info("Finished cache pre-population check.")
-
-    except Exception as e:
-        logger.error(f"Failed during cache pre-population: {e}", exc_info=True)
-        # Log the error but allow the application to start anyway
+            
+            # Optionally pre-populate generations and types too ONLY if summary was missing
+            gen_exists = await get_all_generations_data(force_refresh=False) is not None
+            if not gen_exists: await get_all_generations_data(force_refresh=True)
+            type_exists = await get_all_types_data(force_refresh=False) is not None
+            if not type_exists: await get_all_types_data(force_refresh=True)
+            
+            logger.info("CACHE REFRESH COMPLETED (startup): Pre-population finished.")
+        except Exception as e:
+            logger.error(f"CACHE REFRESH FAILED (startup): Error during cache pre-population: {e}", exc_info=True)
+            # Log the error but allow the application to continue starting
+        finally:
+            IS_REFRESHING = False # CRITICAL: Always reset flag
+            logger.info("Refresh flag reset after startup attempt.")
+    else:
+        logger.info("Pokedex summary already cached. Skipping pre-population.")
     # --- End Cache Pre-population ---
 
     yield # Application runs here
@@ -86,6 +109,24 @@ app = FastAPI(
     # Useful if deploying behind a reverse proxy expecting a base path
     # root_path="/api" # Uncomment if needed, ensure Nginx proxy handles this
 )
+
+# --- Maintenance Middleware ---
+@app.middleware("http")
+async def check_refresh_status_middleware(request: Request, call_next):
+    global IS_REFRESHING
+    # Check if refresh is ongoing and requested path is an API endpoint (not docs/openapi)
+    is_api_request = request.url.path.startswith("/api/")
+    is_docs_request = request.url.path.startswith(("/docs", "/openapi.json"))
+
+    if IS_REFRESHING and is_api_request:
+        logger.warning(f"Request to {request.url.path} returning 503 due to ongoing cache refresh.")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "refreshing", "message": MAINTENANCE_MESSAGE}
+        )
+    # Proceed with the request if not refreshing or not an API call
+    response = await call_next(request)
+    return response
 
 # --- API Endpoints ---
 
@@ -218,9 +259,21 @@ async def get_types(
 async def trigger_cache_refresh(
     cache_key: str = Query(..., description=f"The cache key to refresh. Options: '{POKEDEX_SUMMARY_CACHE_KEY}', '{GENERATIONS_CACHE_KEY}', '{TYPES_CACHE_KEY}', or '{POKEMON_DETAIL_CACHE_PREFIX}<id_or_name>'.")
 ):
+    global IS_REFRESHING # Declare intent to modify
+    if IS_REFRESHING: # Optional: Prevent starting a new refresh if one is already running
+        logger.warning("Admin refresh request ignored: Another refresh is already in progress.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A cache refresh operation is already in progress. Please wait."
+        )
+    
     logger.warning(f"Received admin request to refresh cache for key: {cache_key}")
     refreshed = False
+    IS_REFRESHING = True # Set flag before performing refresh
+    logger.warning(f"CACHE REFRESH STARTING (admin): Key: {cache_key}")
+    # time.sleep(10) # Optional: Simulate long refresh for testing
     try:
+        # Use force_refresh=True within the data fetching functions
         if cache_key == POKEDEX_SUMMARY_CACHE_KEY:
             result = await get_pokedex_summary_data(force_refresh=True)
             refreshed = result is not None
@@ -235,6 +288,8 @@ async def trigger_cache_refresh(
              result = await get_pokemon_detail_data(pokemon_id_or_name, force_refresh=True)
              refreshed = result is not None
         else:
+            # Reset flag immediately if key is invalid before raising HTTPEx
+            IS_REFRESHING = False
             raise HTTPException(status_code=400, detail=f"Invalid cache key specified: {cache_key}")
 
         if refreshed:
@@ -246,10 +301,21 @@ async def trigger_cache_refresh(
             return {"message": f"Cache refresh trigger for '{cache_key}' completed, but underlying fetch failed."}
 
     except HTTPException as http_exc:
+        # Reset flag before re-raising known HTTP exceptions
+        IS_REFRESHING = False
+        logger.warning(f"CACHE REFRESH ABORTED (admin HTTP Exception): Key: {cache_key}")
         raise http_exc # Re-raise HTTP exceptions from validation etc.
     except Exception as e:
+        # Reset flag on unexpected errors
+        IS_REFRESHING = False
         logger.error(f"Error during admin cache refresh for '{cache_key}': {e}", exc_info=True)
+        # Return a 500 instead of 202 to indicate failure
         raise HTTPException(status_code=500, detail=f"An error occurred while refreshing cache for '{cache_key}'.")
+    finally:
+        # --- CRITICAL: Ensure flag is always reset ---
+        if IS_REFRESHING: # Only reset if it wasn't reset in except blocks
+             IS_REFRESHING = False
+             logger.info(f"Refresh flag reset after admin attempt for key: {cache_key}")
 
 
 # Example of how to run directly (though we'll use docker-compose)

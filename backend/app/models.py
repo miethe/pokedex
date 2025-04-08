@@ -221,6 +221,7 @@ class Generation(BaseModel):
     """Represents a Pokemon Generation for filter options."""
     id: int = Field(..., description="Generation ID (1-9)")
     name: str = Field(..., description="Generation Name (e.g., generation-i)")
+    region_name: str = Field(..., description="Main region name for this generation (e.g., kanto)")
 
 class PokemonTypeFilter(BaseModel):
     """Represents a Pokemon Type for filter options."""
