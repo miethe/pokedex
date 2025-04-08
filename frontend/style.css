@@ -55,65 +55,52 @@ img {
 }
 
 /* --- Filter Controls --- */
-#status-filter { /* Style similar to type-filter */
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 10px 15px;
-    margin: 0;
-    display: flex;
-    /* flex-wrap: wrap; */ /* Might not need wrap if legend is above */
-    gap: 10px;
-    align-items: center;
-    flex-direction: column; /* Stack legend and checkboxes */
-    align-items: flex-start; /* Align items left */
-}
-#status-filter legend {
-    padding: 0; /* Reset padding */
-    font-weight: bold;
-    color: #555;
-    font-size: 0.9em;
-    margin-bottom: 8px; /* Space below legend */
-    width: 100%; /* Ensure legend takes width */
-}
-#status-checkboxes-container {
-    display: flex;
-    /* flex-wrap: wrap; */ /* Items likely fit on one line */
-    gap: 15px; /* Space between status checkboxes */
-    width: 100%;
-}
-.status-checkbox-item { /* Container for each checkbox+label */
-    display: flex;
-    align-items: center;
-}
-.status-checkbox-item label {
-    margin-left: 4px;
-    font-size: 0.9em;
-    cursor: pointer;
-}
-/* .status-checkbox-item input[type="checkbox"] {
-     /* Optional: Add specific styling if needed 
-} */
-
 .controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 15px;
+    gap: 20px;
     margin-bottom: 25px;
-    padding: 15px;
+    padding: 20px;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    align-items: flex-start; /* Align fieldsets to the top */
 }
 
-.controls input[type="search"],
-.controls select {
+/* --- Column Structure --- */
+.control-column {
+    display: flex;
+    flex-direction: column; /* Stack items vertically within columns */
+    gap: 15px; /* Space between items in a column */
+}
+
+.search-gen-column {
+    flex: 1 1 300px; /* Allow grow/shrink, base width ~300px */
+    min-width: 250px; /* Prevent getting too small */
+}
+
+.filters-actions-column {
+    flex: 2 1 400px; /* Allow more space, base width ~400px */
+    gap: 15px; /* Space between filter group and action buttons */
+}
+
+/* Grouping for fieldsets */
+.filter-group {
+    display: flex;
+    flex-wrap: wrap; /* Allow fieldsets to wrap if needed */
+    gap: 15px; /* Space between fieldsets */
+}
+.filter-group > fieldset {
+    flex: 1 1 180px; /* Allow fieldsets to grow/shrink */
+    min-width: 150px;
+}
+/* --- End Column Structure --- */
+
+.controls input[type="search"] {
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
     font-size: 0.95em;
-    flex-basis: 200px; /* Minimum width */
-    flex-grow: 1;
+    width: 100%; /* Take full width of its column */
 }
 .controls > fieldset {
      flex-basis: 250px; /* Minimum width for fieldsets */
@@ -121,36 +108,78 @@ img {
 }
 
 .controls input[type="search"] {
-    flex-grow: 1;
-    min-width: 200px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95em;
+    width: 100%; /* Take full width of its column */
 }
 
-.controls select {
-    min-width: 180px;
+/* --- Generation Buttons Styling --- */
+.generation-buttons {
+    display: flex;
+    flex-wrap: wrap; /* Allow buttons to wrap */
+    gap: 8px; /* Space between buttons */
+    padding: 8px; /* Padding around the button area */
+    background-color: transparent;
+    border-radius: none;
+    border: 0;
+}
+.generation-buttons .placeholder-text {
+    width: 100%;
+    text-align: center;
+    color: #888;
 }
 
-#type-filter {
+.gen-button {
+    padding: 6px 12px;
+    font-size: 0.85em;
+    border: 1px solid #ccc;
+    border-radius: 15px; /* Pill shape */
+    background-color: #fff;
+    color: #555;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    white-space: nowrap; /* Prevent text wrap within button */
+}
+
+.gen-button:hover {
+    background-color: #eee;
+    border-color: #aaa;
+}
+
+.gen-button.active {
+    background-color: #e74c3c; /* Pokedex Red */
+    color: white;
+    border-color: #c0392b;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+#type-filter, #status-filter {
     border: 1px solid #ccc;
     border-radius: 4px;
     padding: 10px 15px;
     margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+    background-color: #fdfdfd; /* Slightly off-white background for fieldsets */
 }
-#type-filter legend {
+#type-filter legend, #status-filter legend {
     padding: 0 5px;
     font-weight: bold;
     color: #555;
     font-size: 0.9em;
+    margin-bottom: 8px;
 }
-#type-checkboxes-container {
+#type-checkboxes-container, #status-checkboxes-container {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
-.type-checkbox-item label {
+.status-checkbox-item { /* Container for each checkbox+label */
+    display: flex;
+    align-items: center;
+}
+.type-checkbox-item label, .status-checkbox-item label {
     margin-left: 4px;
     font-size: 0.9em;
     cursor: pointer;
@@ -160,6 +189,9 @@ img {
     font-style: italic;
     color: #888;
 }
+/* .status-checkbox-item input[type="checkbox"] {
+     /* Optional: Add specific styling if needed 
+} */
 
 /* --- Pokemon List Grid --- */
 #loading-indicator {
@@ -356,8 +388,9 @@ img {
     display: flex;
     gap: 10px;
     align-items: center;
-    margin-left: auto; /* Push buttons to the right within flex controls */
-    padding-left: 15px; /* Space from other filters */
+    margin-left: 0; 
+    margin-top: auto; /* Push buttons to bottom of its column */
+    padding-top: 10px; /* Add some space above */
 }
 
 .action-buttons button {
@@ -403,7 +436,35 @@ img {
     position: relative; /* For loading indicator */
 }
 
-/* --- NEW: Detail Title Bar --- */
+/* Container for Gen and Region indicators */
+.detail-indicators {
+    position: absolute;
+    top: 10px; /* Position from top of detail content area */
+    right: 15px;
+    display: flex;
+    flex-direction: column; /* Stack vertically */
+    align-items: flex-end; /* Align text right */
+    gap: 4px; /* Space between indicators */
+    z-index: 5; /* Above sprite container background */
+}
+
+.detail-generation-indicator,
+.detail-region-indicator {
+    background-color: rgba(0, 0, 0, 0.04);
+    color: #555; /* Darker grey */
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 500;
+    border: 1px solid #ddd;
+    white-space: nowrap;
+}
+.detail-region-indicator {
+    font-size: 0.75em; /* Slightly smaller */
+    color: #666;
+}
+
+/* --- Detail Title Bar --- */
 .detail-title-bar {
     display: flex;
     align-items: baseline;
@@ -427,20 +488,6 @@ img {
     text-transform: capitalize;
 }
 
-/* --- NEW: Generation Indicator --- */
-.detail-generation-indicator {
-    position: absolute;
-    top: 10px; /* Adjust position as needed */
-    right: 15px; /* Adjust position */
-    background-color: rgba(0, 0, 0, 0.05); /* Subtle background */
-    color: #666;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 0.8em;
-    font-weight: 500;
-    border: 1px solid #ddd;
-}
-
 #detail-loading-indicator {
     position: absolute;
     top: 50%;
@@ -454,7 +501,6 @@ img {
     font-size: 1.1em;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
-
 
 /* ============================ */
 /* Pokemon Detail View Styles   */
@@ -548,7 +594,6 @@ img {
     border-color: #007bff; /* Blue border for selected */
     box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
 }
-
 
 /* --- Main Grid for Info Cards --- */
 .detail-main-grid {
@@ -887,7 +932,7 @@ img {
 }
 
 
-/* --- NEW: Maintenance Overlay Styles --- */
+/* --- Maintenance Overlay Styles --- */
 .maintenance-overlay {
     position: fixed;
     top: 0;
@@ -946,6 +991,21 @@ img {
     .detail-main-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 }
 
+@media (max-width: 992px) { /* Adjust breakpoint where columns stack */
+    .controls {
+        flex-direction: column; /* Stack columns vertically */
+        align-items: stretch; /* Make columns take full width */
+    }
+    .search-gen-column, .filters-actions-column {
+        flex-basis: auto; /* Reset basis */
+        width: 100%;
+    }
+    .action-buttons {
+        margin-top: 15px; /* Adjust spacing */
+        justify-content: flex-start; /* Align left */
+    }
+}
+
 @media (max-width: 600px) {
     .main-header h1 { font-size: 1.6em; }
     .controls { flex-direction: column; align-items: stretch; position: relative; /* Context for action buttons if needed */ }
@@ -966,7 +1026,6 @@ img {
     .detail-title-bar { flex-direction: column; gap: 0px; }
     .detail-title-bar .detail-name { font-size: 1.6em; }
     .detail-title-bar .detail-id { font-size: 1.3em; }
-    .detail-generation-indicator { top: 5px; right: 8px; font-size: 0.7em; padding: 2px 5px; }
     #sprite-viewer-caption { font-size: 1em; }
     .sprite-viewer-nav { font-size: 2em; padding: 8px 4px;}
     .sprite-viewer-overlay {
@@ -982,5 +1041,28 @@ img {
     }
     #full-sprite-image.zoomed-in {
         min-width: 80vw; /* Larger zoom target on mobile */
+    }
+    .gen-button { padding: 5px 10px; font-size: 0.8em; }
+    .detail-indicators { top: 5px; right: 8px; gap: 2px; }
+    .detail-generation-indicator, .detail-region-indicator {
+        padding: 2px 6px; font-size: 0.7em;
+    }
+    .filter-group {
+        flex-direction: column; /* Stack fieldsets vertically */
+        align-items: stretch;
+    }
+    .filter-group > fieldset {
+        flex-basis: auto;
+        min-width: none;
+    }
+    .generation-buttons {
+        justify-content: flex-start; /* Align buttons left */
+    }
+    .action-buttons {
+        flex-direction: column; /* Stack buttons */
+        align-items: stretch; /* Make buttons full width */
+    }
+    .action-buttons button {
+        text-align: center;
     }
 }

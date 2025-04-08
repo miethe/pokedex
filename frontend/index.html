@@ -18,10 +18,14 @@
         <!-- Filter Controls -->
         <div class="controls">
             <input type="search" id="search-input" placeholder="Search by Name or ID...">
-            <select id="generation-filter">
-                <option value="">All Generations</option>
-                <!-- Dynamically populated -->
-            </select>
+
+            <!-- Generation Buttons -->
+            <div id="generation-buttons" class="generation-buttons">
+                <span class="placeholder-text">Loading generations...</span>
+                <!-- Buttons populated here by JS -->
+            </div>
+            <!-- End Generation Buttons -->
+
             <fieldset id="type-filter">
                 <legend>Filter by Type (AND):</legend>
                 <div id="type-checkboxes-container">

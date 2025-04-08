@@ -301,31 +301,46 @@ async def get_all_generations_data(force_refresh: bool = False) -> Optional[List
         if cached_generations:
             logger.info("Serving Pokemon generations data from cache.")
             try:
+                # Validate against the updated Generation model
                 return [Generation(**item) for item in cached_generations]
             except Exception as e:
                 logger.error(f"Error validating cached generations data, refreshing from PokeAPI. Error: {e}", exc_info=True)
+                await clear_cache(GENERATIONS_CACHE_KEY) # Clear bad cache
                 force_refresh = True
 
     if force_refresh:
         logger.info("Fetching fresh Pokemon generations data from PokeAPI...")
-        generations_data = await fetch_pokeapi("/generation?limit=100") # Limit large enough to get all generations
-        if generations_data and generations_data.get('results'):
-            generations = []
-            for gen_data in generations_data['results']:
-                gen_name = gen_data['name']
-                gen_id = _generation_name_to_id(gen_name)
-                if gen_id: # Ensure we get a valid ID
-                    generations.append(Generation(id=gen_id, name=gen_name))
+        generations_list_data = await fetch_pokeapi("/generation?limit=100") # Limit large enough to get all generations
 
-            if generations:
-                if await set_cache(GENERATIONS_CACHE_KEY, [g.model_dump() for g in generations]):
-                    logger.info("Pokemon generations data cached successfully.")
+        if generations_list_data and generations_list_data.get('results'):
+            generation_infos = generations_list_data['results']
+            logger.info(f"Found {len(generation_infos)} generations. Fetching details...")
+
+            # --- Fetch details concurrently ---
+            tasks = [_fetch_generation_detail(gen_info) for gen_info in generation_infos]
+            results = await asyncio.gather(*tasks)
+            # --------------------------------
+
+            # Filter out None results (failures) and sort by ID
+            valid_generations = sorted(
+                [gen for gen in results if gen is not None],
+                key=lambda g: g.id
+            )
+
+            if valid_generations:
+                # Cache using model_dump() to store plain dicts
+                if await set_cache(GENERATIONS_CACHE_KEY, [g.model_dump() for g in valid_generations]):
+                    logger.info("Pokemon generations data (with regions) cached successfully.")
                 else:
                     logger.warning("Failed to cache Pokemon generations data.")
-                return generations
+                return valid_generations
+            else:
+                logger.error("Failed to fetch details for any generation.")
+                return None
         else:
-            logger.error("Failed to fetch Pokemon generations data from PokeAPI.")
+            logger.error("Failed to fetch initial Pokemon generations list from PokeAPI.")
             return None
+    # Should not be reached under normal flow
     return None
 
 async def get_all_types_data(force_refresh: bool = False) -> Optional[List[PokemonTypeFilter]]:

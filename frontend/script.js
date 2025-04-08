@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let typesData = [];
     let currentDetailPokemon = null; // Keep track of which detail is shown
     let totalPokemonFetched = 0;
+    let selectedGenerationId = ""; // Default to "" for "All"
 
     // --- Sprite Viewer State ---
     let currentGallerySprites = []; // Holds {url, type} for the current Pokemon's gallery
@@ -16,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DOM Element References ---
     const searchInput = document.getElementById('search-input');
-    const generationFilter = document.getElementById('generation-filter');
+    const generationButtonsContainer = document.getElementById('generation-buttons');
     const typeFilterContainer = document.getElementById('type-checkboxes-container');
     const typeFilterFieldset = document.getElementById('type-filter');
     const statusFilterContainer = document.getElementById('status-checkboxes-container');
@@ -115,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(`Fetched ${totalPokemonFetched} Pokémon summaries.`);
 
             // --- Now populate filters ---
-            populateGenerationsFilter(generationsData);
+            populateGenerationButtons(generationsData);
             populateTypesFilter(typesData);
 
             // --- Now render pokemon ---
@@ -197,6 +198,33 @@ document.addEventListener('DOMContentLoaded', () => {
             // --- Update text content to include count ---
             option.textContent = `Generation ${roman} (${count})`;
             generationFilter.appendChild(option);
+        });
+    }
+
+    function populateGenerationButtons(generations) {
+        generationButtonsContainer.innerHTML = ''; // Clear placeholder
+
+        // 1. Create "All Generations" button
+        const allButton = document.createElement('button');
+        allButton.classList.add('gen-button', 'active'); // Active by default
+        allButton.dataset.genId = ""; // Use empty string for "All"
+        allButton.textContent = `All Generations (${totalPokemonFetched})`;
+        generationButtonsContainer.appendChild(allButton);
+
+        // 2. Create button for each generation
+        generations.forEach(gen => {
+            const button = document.createElement('button');
+            button.classList.add('gen-button');
+            button.dataset.genId = gen.id;
+
+            const roman = formatGenerationId(gen.id).replace('Gen ', ''); // Get 'I', 'II' etc.
+            const regionName = gen.region_name.charAt(0).toUpperCase() + gen.region_name.slice(1); // Capitalize region
+            // --- Calculate count for this specific generation ---
+            const count = allPokemonData.filter(p => p.generation_id === gen.id).length;
+            // --------------------------------------------------
+
+            button.textContent = `${regionName} - Gen ${roman} (${count})`;
+            generationButtonsContainer.appendChild(button);
         });
     }
 
@@ -282,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Filtering Logic ---
     function applyFilters() {
         const searchTerm = searchInput.value.toLowerCase().trim();
-        const selectedGeneration = generationFilter.value;
+        const selectedGeneration = selectedGenerationId; // Use state variable
         const selectedTypes = Array.from(typeFilterContainer.querySelectorAll('input[type="checkbox"]:checked'))
                                    .map(checkbox => checkbox.value);
 
@@ -322,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Update Results Counter Function ---
     function updateResultsCounter(displayedCount) {
-        const selectedGeneration = generationFilter.value;
+        const selectedGeneration = selectedGenerationId;
         let potentialTotal = totalPokemonFetched; // Start with overall total
 
         // Adjust potential total if a specific generation is selected
@@ -417,11 +445,25 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         detailView.appendChild(titleBar);
 
-        // --- Generation Indicator ---
+        // --- Generation & Region Indicator ---
+        const indicatorsContainer = document.createElement('div');
+        indicatorsContainer.classList.add('detail-indicators');
+
         const genIndicator = document.createElement('span');
         genIndicator.classList.add('detail-generation-indicator');
         genIndicator.textContent = formatGenerationId(data.generation_id);
-        detailView.appendChild(genIndicator); // Append to main view for absolute positioning later
+        indicatorsContainer.appendChild(genIndicator);
+
+        // Find region name from fetched generations data
+        const generationInfo = generationsData.find(g => g.id === data.generation_id);
+        const regionName = generationInfo ? generationInfo.region_name.charAt(0).toUpperCase() + generationInfo.region_name.slice(1) : 'Unknown';
+
+        const regionIndicator = document.createElement('span');
+        regionIndicator.classList.add('detail-region-indicator');
+        regionIndicator.textContent = `Region: ${regionName}`;
+        indicatorsContainer.appendChild(regionIndicator);
+
+        detailView.appendChild(indicatorsContainer); // Add container with both indicators
 
         // --- Top Sprite Section ---
         const topSpriteSection = document.createElement('div');
@@ -802,7 +844,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners Setup ---
     function setupEventListeners() {
         searchInput.addEventListener('input', debouncedApplyFilters);
-        generationFilter.addEventListener('change', applyFilters);
+        
+        generationButtonsContainer.addEventListener('click', (event) => {
+            const button = event.target.closest('.gen-button'); // Find clicked button
+            if (button && !button.classList.contains('active')) { // Check if it's a button and not already active
+                // Update state
+                selectedGenerationId = button.dataset.genId;
+
+                // Update UI (active class)
+                generationButtonsContainer.querySelectorAll('.gen-button.active').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+
+                // Apply filter
+                applyFilters();
+            }
+        });
+
         typeFilterFieldset.addEventListener('change', (event) => {
             if (event.target.matches('input[type="checkbox"].type-filter-checkbox')) {
                 applyFilters();
