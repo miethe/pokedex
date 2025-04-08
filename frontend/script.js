@@ -179,28 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Rendering Functions (Main List & Filters) ---
 
-    function populateGenerationsFilter(generations) {
-        generationFilter.innerHTML = '<option value="">All Generations</option>';
-
-        // Calculate total for "All Generations" using the global count
-        const allGenOption = generationFilter.querySelector('option[value=""]');
-        if (allGenOption) {
-            allGenOption.textContent = `All Generations (${totalPokemonFetched})`; // Add count here
-        }
-
-        generations.forEach(gen => {
-            const option = document.createElement('option');
-            option.value = gen.id;
-            const roman = gen.name.split('-')[1]?.toUpperCase() || gen.id; // Handle potential missing part
-            // --- Calculate count for this specific generation ---
-            const count = allPokemonData.filter(p => p.generation_id === gen.id).length;
-
-            // --- Update text content to include count ---
-            option.textContent = `Generation ${roman} (${count})`;
-            generationFilter.appendChild(option);
-        });
-    }
-
     function populateGenerationButtons(generations) {
         generationButtonsContainer.innerHTML = ''; // Clear placeholder
 
@@ -230,17 +208,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function populateTypesFilter(types) {
         typeFilterContainer.innerHTML = '';
+        // const knownIconTypes = ['normal', 'fire', 'water', ...]; // List all types you HAVE icons for
         types.forEach(type => {
             const div = document.createElement('div');
             div.classList.add('type-checkbox-item');
+
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.id = `type-${type.name}`;
             checkbox.value = type.name;
             checkbox.classList.add('type-filter-checkbox');
+
             const label = document.createElement('label');
             label.htmlFor = `type-${type.name}`;
-            label.textContent = type.name;
+
+            // Label will contain icon OR text
+
+            // --- Create Icon Span ---
+            const typeIconSpan = document.createElement('span');
+            typeIconSpan.classList.add('type', 'filter-type-icon', `type-${type.name}`); // Add specific class for filter icon styling
+            typeIconSpan.title = type.name.charAt(0).toUpperCase() + type.name.slice(1); // Tooltip text
+
+            // --- Create Text Span (Fallback) ---
+            const typeTextSpan = document.createElement('span');
+            typeTextSpan.classList.add('filter-type-text');
+            typeTextSpan.textContent = type.name.charAt(0).toUpperCase() + type.name.slice(1);
+            
+            // --- Logic: Use Icon or Text ---
+            // Simple approach: Assume icon exists, let CSS handle background image.
+            // The text span will be hidden by default CSS unless icon fails to load (or use more complex JS check)
+            // For now, we add both and rely on CSS to show/hide. A more robust JS check
+            // could pre-verify icon existence if needed.
+            label.appendChild(typeIconSpan);
+            label.appendChild(typeTextSpan);
+            
             div.appendChild(checkbox);
             div.appendChild(label);
             typeFilterContainer.appendChild(div);
@@ -294,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pokemon.types.forEach(typeInfo => {
                 const typeSpan = document.createElement('span');
                 typeSpan.classList.add('type', `type-${typeInfo.name}`);
-                typeSpan.textContent = typeInfo.name;
+                typeSpan.title = typeInfo.name.charAt(0).toUpperCase() + typeInfo.name.slice(1); // Capitalized type
                 typesDiv.appendChild(typeSpan);
             });
 
@@ -543,7 +544,6 @@ document.addEventListener('DOMContentLoaded', () => {
         topSpriteSection.appendChild(spriteGallery);
         detailView.appendChild(topSpriteSection);
 
-
         // --- Main Content Grid ---
         const mainGrid = document.createElement('div');
         mainGrid.classList.add('detail-main-grid');
@@ -559,7 +559,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Types Card
         mainGrid.appendChild(createInfoCard('Types', `
             <div class="card-content-types">
-                ${data.types.map(t => `<span class="type type-${t.name}">${t.name}</span>`).join(' ')}
+                ${data.types.map(t => `
+                    <span
+                        class="type type-${t.name}"
+                        title="${t.name.charAt(0).toUpperCase() + t.name.slice(1)}"
+                    ></span>` // Add title, remove text content
+                ).join(' ')}
             </div>
         `));
 

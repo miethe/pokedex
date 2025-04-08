@@ -170,7 +170,35 @@ img {
     font-size: 0.9em;
     margin-bottom: 8px;
 }
-#type-checkboxes-container, #status-checkboxes-container {
+
+#type-checkboxes-container {
+    display: grid; /* Use grid for better alignment */
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* Responsive columns */
+    gap: 8px 15px; /* Row and column gap */
+    width: 100%;
+}
+.type-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Space between checkbox and label */
+}
+.type-checkbox-item input[type="checkbox"] {
+    margin: 0;
+    flex-shrink: 0; /* Prevent checkbox from shrinking */
+}
+
+.type-checkbox-item label {
+    margin: 0;
+    font-size: 0.9em;
+    cursor: pointer;
+    display: flex; /* Align icon and text within label */
+    align-items: center;
+    gap: 5px; /* Space between icon and text (if text shown) */
+    /* Remove text capitalization, handled by JS/spans */
+    /* text-transform: capitalize; */
+}
+
+#status-checkboxes-container {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -179,7 +207,7 @@ img {
     display: flex;
     align-items: center;
 }
-.type-checkbox-item label, .status-checkbox-item label {
+.status-checkbox-item label {
     margin-left: 4px;
     font-size: 0.9em;
     cursor: pointer;
@@ -192,6 +220,40 @@ img {
 /* .status-checkbox-item input[type="checkbox"] {
      /* Optional: Add specific styling if needed 
 } */
+
+
+/* --- Filter Icon/Text Styles --- */
+
+/* Style for the icon span specifically in filters */
+.filter-type-icon {
+    /* Inherits basic .type styles (width, height, border-radius etc.) */
+    /* Override or adjust specific properties for filter view */
+    background-size: 100%; /* Adjust icon size within circle */
+    flex-shrink: 0; /* Prevent icon from shrinking */
+    /* Ensure background-image rules below apply */
+}
+
+/* Style for the fallback text span */
+.filter-type-text {
+    line-height: 1; /* Ensure text aligns well */
+    /* Text is hidden by default if the icon background is applied */
+    display: none;
+}
+
+/* --- Fallback Logic using CSS --- */
+/* If a specific type icon rule DOES NOT apply (meaning no background-image was set),
+   then hide the icon span and show the text span.
+   This relies on the background-image property specifically. */
+
+/* Hide icon span if its background-image is 'none' (initial/default state) */
+.filter-type-icon:not([style*="background-image"]):not(.type-normal):not(.type-fire):not(.type-water):not(.type-electric):not(.type-grass):not(.type-ice):not(.type-fighting):not(.type-poison):not(.type-ground):not(.type-flying):not(.type-psychic):not(.type-bug):not(.type-rock):not(.type-ghost):not(.type-dragon):not(.type-dark):not(.type-steel):not(.type-fairy) { /* Add any other types with icons */
+    display: none; /* Hide the icon circle if no specific icon applies */
+}
+
+/* Show text span ONLY if the sibling icon span is hidden (due to the above rule) */
+.filter-type-icon:not([style*="background-image"]):not(.type-normal):not(.type-fire):not(.type-water):not(.type-electric):not(.type-grass):not(.type-ice):not(.type-fighting):not(.type-poison):not(.type-ground):not(.type-flying):not(.type-psychic):not(.type-bug):not(.type-rock):not(.type-ghost):not(.type-dragon):not(.type-dark):not(.type-steel):not(.type-fairy) + .filter-type-text { /* Add any other types with icons */
+    display: inline; /* Show the text */
+}
 
 /* --- Pokemon List Grid --- */
 #loading-indicator {
@@ -255,8 +317,10 @@ img {
 .pokemon-card .pokemon-types {
     margin-top: 5px;
     display: flex;
-    gap: 3px;
+    gap: 5x;
     justify-content: center;
+    height: 30px; /* Ensure container has height */
+    align-items: center;
 }
 .pokemon-card .pokemon-types .type {
      padding: 2px 6px;
@@ -644,8 +708,16 @@ img {
     margin-right: 5px;
 }
 
+
 /* Specific Card Content Styling */
-.card-content-types { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Ensure enough space if using inside .card-content-types */
+#pokemon-detail-content .card-content-types {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-height: 30px; /* Ensure container has height */
+    align-items: center;
+}
 .card-content-types .type { font-size: 0.9em; }
 
 .abilities-card ul { padding-left: 5px; }
@@ -751,14 +823,46 @@ img {
 .evolution-arrow { font-size: 1.5em; color: #aaa; margin: 0 5px; align-self: center; line-height: 60px; }
 
 
-/* --- Pokémon Type Colors (Keep as before) --- */
+/* --- Pokémon Type Colors --- */
 .type {
-    display: inline-block; padding: 3px 10px; border-radius: 4px; color: white;
-    font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;
-    font-weight: 600; text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    display: inline-block;
+    width: 35px;  /* Adjust desired icon width */
+    height: 35px; /* Adjust desired icon height */
+    border-radius: 50%; /* Make it circular */
+    background-size: 85%; /* Size of icon within the circle */
+    background-repeat: no-repeat;
+    background-position: center center;
+    vertical-align: middle; /* Align nicely with text if needed elsewhere */
+    margin: 2px; /* Keep some spacing */
+
+    /* Hide the text */
+    text-indent: -9999px;
+    overflow: hidden;
+    font-size: 0; /* Further hide text */
+    line-height: 0; /* Further hide text */
 }
-.type-normal { background-color: #A8A77A; } .type-fire { background-color: #EE8130; }
+/* --- Add rules for each type icon using background-image --- */
+/* The path must match how Nginx serves it */
+.type-normal { background-image: url('/assets/icons/color/normal.svg'); }
+.type-fire { background-image: url('/assets/icons/color/fire.svg'); }
+.type-water { background-image: url('/assets/icons/color/water.svg'); }
+.type-electric { background-image: url('/assets/icons/color/electric.svg'); }
+.type-grass { background-image: url('/assets/icons/color/grass.svg'); }
+.type-ice { background-image: url('/assets/icons/color/ice.svg'); }
+.type-fighting { background-image: url('/assets/icons/color/fighting.svg'); }
+.type-poison { background-image: url('/assets/icons/color/poison.svg'); }
+.type-ground { background-image: url('/assets/icons/color/ground.svg'); }
+.type-flying { background-image: url('/assets/icons/color/flying.svg'); }
+.type-psychic { background-image: url('/assets/icons/color/psychic.svg'); }
+.type-bug { background-image: url('/assets/icons/color/bug.svg'); }
+.type-rock { background-image: url('/assets/icons/color/rock.svg'); }
+.type-ghost { background-image: url('/assets/icons/color/ghost.svg'); }
+.type-dragon { background-image: url('/assets/icons/color/dragon.svg'); }
+.type-dark { background-image: url('/assets/icons/color/dark.svg'); }
+.type-steel { background-image: url('/assets/icons/color/steel.svg'); }
+.type-fairy { background-image: url('/assets/icons/color/fairy.svg'); }
+
+/* .type-normal { background-color: #A8A77A; } .type-fire { background-color: #EE8130; }
 .type-water { background-color: #6390F0; } .type-electric { background-color: #F7D02C; }
 .type-grass { background-color: #7AC74C; } .type-ice { background-color: #96D9D6; }
 .type-fighting { background-color: #C22E28; } .type-poison { background-color: #A33EA1; }
@@ -766,10 +870,10 @@ img {
 .type-psychic { background-color: #F95587; } .type-bug { background-color: #A6B91A; }
 .type-rock { background-color: #B6A136; } .type-ghost { background-color: #735797; }
 .type-dragon { background-color: #6F35FC; } .type-dark { background-color: #705746; }
-.type-steel { background-color: #B7B7CE; } .type-fairy { background-color: #D685AD; }
+.type-steel { background-color: #B7B7CE; } .type-fairy { background-color: #D685AD; } */
 
 
-/* --- NEW: Sprite Viewer Overlay Styles --- */
+/* --- Sprite Viewer Overlay Styles --- */
 .sprite-viewer-overlay {
     position: fixed;
     top: 0;
