@@ -8,7 +8,7 @@
 }
 
 body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Playpen Sans', Inter, Arial, sans-serif;
     margin: 0;
     background-color: #f0f2f5; /* Light grey background */
     color: #333;
@@ -37,15 +37,26 @@ img {
 /* --- Main Page Layout --- */
 .main-header {
     background-color: #e74c3c; /* Pokedex Red */
-    padding: 10px 0;
+    padding: 8px 20px; /* Adjust padding */
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex; /* Use flexbox */
+    align-items: center; /* Vertically center items */
+    justify-content: center; /* Center items horizontally */
+    gap: 15px; /* Space between logo and title */
+}
+
+.header-logo {
+    height: 60px; /* Set desired height for the logo */
+    width: auto; /* Let width adjust automatically */
+    display: block; /* Ensure it behaves like a block element */
 }
 .main-header h1 {
     text-align: center;
     color: white;
     margin: 0;
-    padding: 5px 0;
-    font-size: 2em;
+    padding: 0; 
+    font-size: 2em; 
+    line-height: 1; 
 }
 
 .container {
@@ -237,7 +248,7 @@ img {
 .filter-type-text {
     line-height: 1; /* Ensure text aligns well */
     /* Text is hidden by default if the icon background is applied */
-    display: none;
+    display: flex;
 }
 
 /* --- Fallback Logic using CSS --- */
@@ -246,12 +257,19 @@ img {
    This relies on the background-image property specifically. */
 
 /* Hide icon span if its background-image is 'none' (initial/default state) */
-.filter-type-icon:not([style*="background-image"]):not(.type-normal):not(.type-fire):not(.type-water):not(.type-electric):not(.type-grass):not(.type-ice):not(.type-fighting):not(.type-poison):not(.type-ground):not(.type-flying):not(.type-psychic):not(.type-bug):not(.type-rock):not(.type-ghost):not(.type-dragon):not(.type-dark):not(.type-steel):not(.type-fairy) { /* Add any other types with icons */
+.filter-type-icon:not([style*="background-image"]):not(.type-normal):not(.type-fire)
+    :not(.type-water):not(.type-electric):not(.type-grass):not(.type-ice):not(.type-fighting):not(.type-poison)
+    :not(.type-ground):not(.type-flying):not(.type-psychic):not(.type-bug):not(.type-rock):not(.type-ghost)
+    :not(.type-dragon):not(.type-dark):not(.type-steel):not(.type-fairy):not(.type-shadow):not(.type-unknown):not(.type-stellar) { /* Add any other types with icons */
     display: none; /* Hide the icon circle if no specific icon applies */
 }
 
 /* Show text span ONLY if the sibling icon span is hidden (due to the above rule) */
-.filter-type-icon:not([style*="background-image"]):not(.type-normal):not(.type-fire):not(.type-water):not(.type-electric):not(.type-grass):not(.type-ice):not(.type-fighting):not(.type-poison):not(.type-ground):not(.type-flying):not(.type-psychic):not(.type-bug):not(.type-rock):not(.type-ghost):not(.type-dragon):not(.type-dark):not(.type-steel):not(.type-fairy) + .filter-type-text { /* Add any other types with icons */
+.filter-type-icon:not([style*="background-image"]):not(.type-normal):not(.type-fire):not(.type-water)
+:not(.type-electric):not(.type-grass):not(.type-ice):not(.type-fighting):not(.type-poison):not(.type-ground)
+:not(.type-flying):not(.type-psychic):not(.type-bug):not(.type-rock):not(.type-ghost):not(.type-dragon)
+:not(.type-dark):not(.type-steel):not(.type-fairy):not(.type-shadow):not(.type-unknown):not(.type-stellar)
+ + .filter-type-text { /* Add any other types with icons */
     display: inline; /* Show the text */
 }
 
@@ -693,6 +711,7 @@ img {
     font-size: 0.9em;
     color: #555;
     flex-grow: 1;
+    align-content: center;
 }
 .info-card .card-content p,
 .info-card .card-content ul {
@@ -717,8 +736,9 @@ img {
     flex-wrap: wrap;
     min-height: 30px; /* Ensure container has height */
     align-items: center;
+    justify-content: center;
 }
-.card-content-types .type { font-size: 0.9em; }
+.card-content-types .type { font-size: 0.9em; min-width: 60px; min-height: 60px; }
 
 .abilities-card ul { padding-left: 5px; }
 .abilities-card li { position: relative; padding-left: 12px; }
@@ -828,8 +848,9 @@ img {
     display: inline-block;
     width: 35px;  /* Adjust desired icon width */
     height: 35px; /* Adjust desired icon height */
-    border-radius: 50%; /* Make it circular */
-    background-size: 85%; /* Size of icon within the circle */
+    /* Optionally add background */
+    /*border-radius: 50%; /* Make it circular */
+    /*background-size: 85%; /* Size of icon within the circle */
     background-repeat: no-repeat;
     background-position: center center;
     vertical-align: middle; /* Align nicely with text if needed elsewhere */
@@ -861,6 +882,9 @@ img {
 .type-dark { background-image: url('/assets/icons/color/dark.svg'); }
 .type-steel { background-image: url('/assets/icons/color/steel.svg'); }
 .type-fairy { background-image: url('/assets/icons/color/fairy.svg'); }
+.type-shadow { background-image: url('/assets/icons/color/shadow.svg'); }
+.type-stellar { background-image: url('/assets/icons/color/stellar.svg'); }
+.type-unknown { background-image: url('/assets/icons/color/unown-221.svg'); }
 
 /* .type-normal { background-color: #A8A77A; } .type-fire { background-color: #EE8130; }
 .type-water { background-color: #6390F0; } .type-electric { background-color: #F7D02C; }
@@ -1111,6 +1135,13 @@ img {
 }
 
 @media (max-width: 600px) {
+    .main-header {
+        padding: 6px 15px;
+        gap: 10px;
+    }
+    .header-logo {
+        height: 30px; /* Smaller logo on mobile */
+    }
     .main-header h1 { font-size: 1.6em; }
     .controls { flex-direction: column; align-items: stretch; position: relative; /* Context for action buttons if needed */ }
     .modal-content { margin: 10px auto; width: calc(100% - 20px); } /* Near full width on mobile */
