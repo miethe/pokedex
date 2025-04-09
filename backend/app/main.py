@@ -53,43 +53,43 @@ async def lifespan(app: FastAPI):
     _ = await get_client()
     logger.info("HTTPX client initialized.")
 
-    # --- Pre-populate Cache on Startup (Optional but recommended for summary) ---
-    logger.info("Attempting to pre-populate Pokedex summary cache on startup...")
-    # Set flag only if we actually need to refresh
-    summary_exists = False
+    # --- Simplified Startup Cache Population (Only if MISSING) ---
+    logger.info("Checking if essential caches exist...")
+    needs_population = False
     try:
-        # Check cache *before* setting the flag
-        # Check if summary is already cached, only fetch if not present
-        summary_cached_data = await get_pokedex_summary_data(force_refresh=False)
-        summary_exists = summary_cached_data is not None
+        # Primarily check if the summary key exists at all
+        async with get_redis_connection() as conn: # Use cache.py utility
+             summary_exists = await conn.exists(POKEDEX_SUMMARY_CACHE_KEY)
+             # Optionally check others too
+             gens_exist = await conn.exists(GENERATIONS_CACHE_KEY)
+             types_exist = await conn.exists(TYPES_CACHE_KEY)
+
+        if not summary_exists or not gens_exist or not types_exist:
+            needs_population = True
+            logger.warning("One or more essential caches are MISSING. Initial population required.")
+        else:
+             logger.info("Essential caches found. Skipping initial population.")
+
     except Exception as e:
-         logger.error(f"Error checking initial cache state: {e}", exc_info=True)
-         summary_exists = False # Assume not cached if check fails
+         logger.error(f"Error checking cache existence during startup: {e}", exc_info=True)
+         needs_population = True # Assume population needed if check fails
+         logger.warning("Assuming cache population needed due to error during check.")
     
-    if not summary_exists:
-        IS_REFRESHING = True # Set flag before long operation
-        logger.warning("CACHE REFRESH STARTING (startup): Pokedex summary cache needs population.")
-        # time.sleep(15) # Optional: Simulate long refresh for testing
+    if needs_population:
+        IS_REFRESHING = True
+        logger.warning("CACHE POPULATION STARTING (startup): Populating missing essential data.")
         try:
-            logger.info("Pokedex summary not found in cache. Fetching now...")
+            # Fetch everything needed if any part is missing
             await get_pokedex_summary_data(force_refresh=True)
-            
-            # Optionally pre-populate generations and types too ONLY if summary was missing
-            gen_exists = await get_all_generations_data(force_refresh=False) is not None
-            if not gen_exists: await get_all_generations_data(force_refresh=True)
-            type_exists = await get_all_types_data(force_refresh=False) is not None
-            if not type_exists: await get_all_types_data(force_refresh=True)
-            
-            logger.info("CACHE REFRESH COMPLETED (startup): Pre-population finished.")
+            await get_all_generations_data(force_refresh=True)
+            await get_all_types_data(force_refresh=True)
+            logger.info("CACHE POPULATION COMPLETED (startup).")
         except Exception as e:
-            logger.error(f"CACHE REFRESH FAILED (startup): Error during cache pre-population: {e}", exc_info=True)
-            # Log the error but allow the application to continue starting
+            logger.error(f"CACHE POPULATION FAILED (startup): {e}", exc_info=True)
         finally:
-            IS_REFRESHING = False # CRITICAL: Always reset flag
-            logger.info("Refresh flag reset after startup attempt.")
-    else:
-        logger.info("Pokedex summary already cached. Skipping pre-population.")
-    # --- End Cache Pre-population ---
+            IS_REFRESHING = False
+            logger.info("Refresh flag reset after startup population attempt.")
+    # --- End Startup Cache Population ---
 
     yield # Application runs here
 

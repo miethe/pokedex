@@ -28,8 +28,9 @@ class Settings(BaseSettings):
     # PokeAPI base URL
     pokeapi_base_url: str = "https://pokeapi.co/api/v2"
 
-    # Default cache TTL (Time To Live) in seconds (24 hours)
-    cache_ttl_seconds: int = 60 * 60 * 24
+    # Default cache TTL (Time To Live) in seconds
+    # 30 days = 30 * 24 * 60 * 60 seconds
+    cache_ttl_seconds: int = 30 * 24 * 60 * 60 # Default: 30 days
 
     # Max Pokemon ID to fetch for summary (adjust as new generations are added)
     # Gen 9 ends at 1025 (as of early 2024), let's add some buffer
