@@ -273,6 +273,36 @@ img {
     display: inline; /* Show the text */
 }
 
+/* --- Error Display Area Styles --- */
+.error-display {
+    background-color: #fff;
+    border: 1px solid #e74c3c; /* Red border */
+    border-left-width: 5px; /* Thicker left border */
+    border-radius: 8px;
+    padding: 25px 30px;
+    margin: 30px auto; /* Center block */
+    max-width: 600px; /* Limit width */
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.error-display h2 {
+    color: #e74c3c;
+    font-size: 1.5em;
+    margin-bottom: 15px;
+}
+
+#error-message {
+    font-weight: bold;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.error-display p {
+    color: #666;
+    line-height: 1.6;
+}
+
 /* --- Pokemon List Grid --- */
 #loading-indicator {
     text-align: center;

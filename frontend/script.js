@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetSearchButton = document.getElementById('reset-search-button');
     const scrollToTopButton = document.getElementById('scroll-to-top');
 
+    const errorDisplay = document.getElementById('error-display');
+    const errorMessageElement = document.getElementById('error-message');
+
     // Modal specific elements
     const modal = document.getElementById('pokemon-detail-modal');
     const modalContent = document.getElementById('pokemon-detail-content'); // Content area inside modal
@@ -68,6 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Initializing Pokedex App...");
         showListLoading(true);
         resultsCounter.style.display = 'none'; // Hide counter initially
+        errorDisplay.style.display = 'none'; // Hide error display initially, show loading
+        pokedexListContainer.style.display = 'grid'; // Ensure list grid is visible by default layout
 
         try {
             // Use Promise.allSettled to handle potential maintenance state from one fetch
@@ -129,7 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Initialization failed:", error);
             // Avoid showing generic error if maintenance overlay is already up
             if (maintenanceOverlay.style.display !== 'flex') {
-                pokedexListContainer.innerHTML = `<p class="error">Could not load Pokedex data. Please try refreshing the page. (${error.message})</p>`;
+                //pokedexListContainer.innerHTML = `<p class="error">Could not load Pokedex data. Please try refreshing the page. (${error.message})</p>`;
+                showInitializationError(error.message); // Show the dedicated error block
             }
         } finally {
             showListLoading(false);
@@ -246,6 +252,18 @@ document.addEventListener('DOMContentLoaded', () => {
             div.appendChild(label);
             typeFilterContainer.appendChild(div);
         });
+    }
+
+    // --- Show Initialization Error ---
+    function showInitializationError(message) {
+        errorMessageElement.textContent = message || "An unexpected error occurred."; // Set error message
+        errorDisplay.style.display = 'block'; // Show error block
+        // Hide other main content sections
+        pokedexListContainer.style.display = 'none';
+        resultsCounter.style.display = 'none';
+        loadingIndicator.style.display = 'none';
+        // Optionally hide controls too?
+        // document.querySelector('.controls').style.display = 'none';
     }
 
     function renderPokemonList(pokemonListToRender) {
