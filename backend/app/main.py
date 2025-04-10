@@ -6,10 +6,11 @@ from contextlib import asynccontextmanager
 import logging
 from typing import List, Optional, Union
 import time
+import httpx # Keep httpx for the library client
+
+from pokeapi_lib import configure_redis, close_redis_pool, PokeAPIError, ResourceNotFoundError
 
 # Import necessary components from other modules
-from .cache import create_redis_pool, close_redis_pool, redis_pool, clear_cache
-from .pokeapi_client import close_client, get_client
 from .pokedex_data import (
     get_pokedex_summary_data,
     get_pokemon_detail_data,
@@ -21,7 +22,8 @@ from .pokedex_data import (
     POKEMON_DETAIL_CACHE_PREFIX
 )
 from .models import PokemonSummary, PokemonDetail, Generation, PokemonTypeFilter
-from .config import settings # If needed for configuration directly
+from .config import settings # Redis URL, etc
+from .clients import get_library_client, close_library_client
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -38,65 +40,61 @@ async def lifespan(app: FastAPI):
     
     # Startup phase
     logger.info("Application startup...")
+    # --- Configure Library Cache ---
     try:
-        create_redis_pool()
-        logger.info("Redis connection pool created.")
-        # You could add a ping check here if desired
-        # async with get_redis_connection() as conn:
-        #    await conn.ping()
-        # logger.info("Redis ping successful.")
+        # Pass Redis URL from backend config to library config
+        configure_redis(redis_url=settings.redis_url)
+        logger.info("PokeAPI library Redis configured.")
+        # Optional: Ping check via library's cache module if needed
     except Exception as e:
-        logger.error(f"Failed to initialize Redis during startup: {e}", exc_info=True)
-        # Decide if the app should fail to start if Redis is unavailable
-        # raise RuntimeError("Could not connect to Redis") from e
-
-    _ = await get_client()
-    logger.info("HTTPX client initialized.")
-
-    # --- Simplified Startup Cache Population (Only if MISSING) ---
-    logger.info("Checking if essential caches exist...")
-    needs_population = False
-    try:
-        # Primarily check if the summary key exists at all
-        async with get_redis_connection() as conn: # Use cache.py utility
-             summary_exists = await conn.exists(POKEDEX_SUMMARY_CACHE_KEY)
-             # Optionally check others too
-             gens_exist = await conn.exists(GENERATIONS_CACHE_KEY)
-             types_exist = await conn.exists(TYPES_CACHE_KEY)
-
-        if not summary_exists or not gens_exist or not types_exist:
-            needs_population = True
-            logger.warning("One or more essential caches are MISSING. Initial population required.")
-        else:
-             logger.info("Essential caches found. Skipping initial population.")
-
-    except Exception as e:
-         logger.error(f"Error checking cache existence during startup: {e}", exc_info=True)
-         needs_population = True # Assume population needed if check fails
-         logger.warning("Assuming cache population needed due to error during check.")
+        logger.error(f"Failed to configure library Redis: {e}", exc_info=True)
+        
+    # --- Initialize Library Client ---
+    await get_library_client() # Ensures client is created
+    logger.info("PokeAPI library HTTPX client initialized.")
     
+    # --- Startup Cache Population (Uses Library) ---
+    # This logic might change depending on how the library exposes list fetching
+    # For now, we assume it still happens via iterating get_pokemon/get_species
+    # or if the library provides specific list functions.
+    # The IS_REFRESHING logic remains the same concept.
+    # Note: Need to pass the client to library functions now.
+    logger.info("Checking if essential caches exist via library...")
+    # ... (Simplified check using library functions or direct cache access if needed)
+    needs_population = False # Determine if population needed
+    try:
+        client = await get_library_client()
+        # Example check: Try fetching Bulbasaur. If ResourceNotFoundError, assume empty.
+        # This isn't a perfect check for *all* data.
+        await pokeapi_lib.get_pokemon(1, client=client) # Use library function
+        logger.info("Essential caches likely exist (checked Pokemon 1). Skipping population.")
+    except ResourceNotFoundError:
+         needs_population = True
+         logger.warning("Cache seems empty (Pokemon 1 not found via library). Population required.")
+    except Exception as e:
+         logger.error(f"Error checking cache via library: {e}")
+         needs_population = True # Populate if check fails
+
     if needs_population:
         IS_REFRESHING = True
-        logger.warning("CACHE POPULATION STARTING (startup): Populating missing essential data.")
+        logger.warning("CACHE POPULATION STARTING (startup): Populating missing essential data via library...")
         try:
-            # Fetch everything needed if any part is missing
-            await get_pokedex_summary_data(force_refresh=True)
-            await get_all_generations_data(force_refresh=True)
-            await get_all_types_data(force_refresh=True)
-            logger.info("CACHE POPULATION COMPLETED (startup).")
-        except Exception as e:
-            logger.error(f"CACHE POPULATION FAILED (startup): {e}", exc_info=True)
-        finally:
-            IS_REFRESHING = False
-            logger.info("Refresh flag reset after startup population attempt.")
-    # --- End Startup Cache Population ---
+             # This now needs to call library functions, potentially iterating
+             # The aggregation logic might stay here in pokedex_data.py
+             # For simplicity, let's assume get_pokedex_summary_data etc. are adapted
+             await get_pokedex_summary_data(force_refresh=True) # These now use the library internally
+             await get_all_generations_data(force_refresh=True)
+             await get_all_types_data(force_refresh=True)
+             logger.info("CACHE POPULATION COMPLETED (startup).")
+        except Exception as e: logger.error(f"CACHE POPULATION FAILED (startup): {e}", exc_info=True)
+        finally: IS_REFRESHING = False; logger.info("Refresh flag reset after startup population attempt.")
 
     yield # Application runs here
 
     # Shutdown phase
     logger.info("Application shutdown...")
-    await close_redis_pool()
-    await close_client()
+    await close_redis_pool() # Call library's Redis close
+    await close_library_client() # Close library's HTTP client
     logger.info("Resources cleaned up.")
 
 # Create FastAPI app instance with lifespan manager
