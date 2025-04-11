@@ -187,6 +187,9 @@ async def get_pokedex_summary_data(force_refresh: bool = False) -> Optional[List
     logger.info("Fetching fresh Pokedex summary data via library...")
     all_pokemon_summaries: List[PokemonSummary] = []
     client = await get_library_client()
+    
+    BATCH_SIZE = 50 # Process 50 Pokemon at a time (adjust as needed)
+    pokemon_ids_to_fetch = range(1, settings.max_pokemon_id_to_fetch + 1)
 
     async def fetch_single_summary(pokemon_id: int) -> Optional[PokemonSummary]:
         try:
@@ -210,9 +213,19 @@ async def get_pokedex_summary_data(force_refresh: bool = False) -> Optional[List
             logger.warning(f"Summary fetch skipped for ID {pokemon_id}: {type(e).__name__}")
             return None
 
-    tasks = [fetch_single_summary(i) for i in range(1, settings.max_pokemon_id_to_fetch + 1)]
-    results = await asyncio.gather(*tasks)
-    all_pokemon_summaries = [summary for summary in results if summary is not None]
+    #tasks = [fetch_single_summary(i) for i in range(1, settings.max_pokemon_id_to_fetch + 1)]
+    #results = await asyncio.gather(*tasks)
+    #all_pokemon_summaries = [summary for summary in results if summary is not None]
+    
+    for i in range(0, len(pokemon_ids_to_fetch), BATCH_SIZE):
+        batch_ids = pokemon_ids_to_fetch[i:i + BATCH_SIZE]
+        logger.info(f"Fetching summary batch: IDs {batch_ids[0]} to {batch_ids[-1]}")
+        tasks = [fetch_single_summary(pid) for pid in batch_ids]
+        results = await asyncio.gather(*tasks)
+        batch_summaries = [summary for summary in results if summary is not None]
+        all_pokemon_summaries.extend(batch_summaries)
+        # Optional short sleep between batches to be nicer to the API
+        await asyncio.sleep(0.1) # Sleep 100ms
 
     if all_pokemon_summaries:
          await set_backend_cache(POKEDEX_SUMMARY_CACHE_KEY, [s.model_dump() for s in all_pokemon_summaries])
@@ -363,8 +376,8 @@ async def get_all_generations_data(force_refresh: bool = False) -> Optional[List
                   id=lib_gen.id,
                   name=lib_gen.name,
                   region_name=lib_gen.region_name,
-                  roman_numeral=_format_generation_id(lib_gen.id),
-                  count=count
+                  #roman_numeral=_format_generation_id(lib_gen.id),
+                  #count=count
              )
              backend_generations.append(backend_gen)
 
@@ -409,12 +422,12 @@ async def get_all_types_data(force_refresh: bool = False) -> Optional[List[Pokem
 # Example Usage (for testing within this module)
 async def main():
     # Fetch and print Pokedex summary data
-    """ summary_data = await get_pokedex_summary_data(force_refresh=True) # Force refresh for first run
-    if summary_data:
-        print(f"Fetched {len(summary_data)} Pokemon summary items.")
-        # print("First 3 Pokemon Summaries:\n", [s.model_dump_json(indent=2) for s in summary_data[:3]]) # Optional print
-    else:
-        print("Failed to retrieve Pokedex summary data.") """
+    # summary_data = await get_pokedex_summary_data(force_refresh=True) # Force refresh for first run
+    # if summary_data:
+    #     print(f"Fetched {len(summary_data)} Pokemon summary items.")
+    #     # print("First 3 Pokemon Summaries:\n", [s.model_dump_json(indent=2) for s in summary_data[:3]]) # Optional print
+    # else:
+    #     print("Failed to retrieve Pokedex summary data.")
 
     # Fetch and print detail for Bulbasaur
     bulbasaur_detail = await get_pokemon_detail_data("bulbasaur", force_refresh=True) # Force refresh for first run
@@ -423,7 +436,7 @@ async def main():
     else:
         print("Failed to retrieve Bulbasaur detail data.")
 
-    # # Fetch and print generations data
+    # # # Fetch and print generations data
     # generations = await get_all_generations_data(force_refresh=True)
     # if generations:
     #     print(f"\nFetched {len(generations)} generations.")

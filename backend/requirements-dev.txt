@@ -1,0 +1,7 @@
+# backend/requirements-dev.txt
+pytest
+pytest-asyncio
+pytest-cov # For coverage reports
+httpx # Already have this, but good to list explicitly
+respx # For mocking HTTP requests
+# fakeredis-py # Optional, for fake redis

@@ -100,8 +100,8 @@ class Generation(BaseModel):
     id: int
     name: str # e.g., generation-i
     region_name: str
-    roman_numeral: str # e.g., I, V, IX
-    count: int # Added count
+    #roman_numeral: str # e.g., I, V, IX
+    #count: int # Added count
 
 class PokemonTypeFilter(BaseModel):
     """Represents a Pokemon Type for filter options."""

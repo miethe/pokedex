@@ -10,6 +10,13 @@ ENV PYTHONUNBUFFERED 1
 # Set work directory
 WORKDIR /app
 
+# --- Install git ---
+# Update package lists and install git. Clean up apt cache afterwards.
+# 'apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*' is a common pattern
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 # Copy only requirements first to leverage Docker cache
 COPY ./backend/requirements.txt .
