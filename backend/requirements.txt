@@ -3,8 +3,8 @@
 fastapi
 uvicorn[standard]
 httpx
-redis[hiredis]>=4.4.0 # Use a version supporting async and hiredis for performance
+#redis[hiredis]>=4.4.0 # Use a version supporting async and hiredis for performance
 python-dotenv         # For loading .env file (optional but good practice)
-pydantic              # Explicitly list for clarity, though fastapi depends on it
-pydantic_settings
-../pokeapi_wrapper_lib
+pydantic>=2.0              # Explicitly list for clarity, though fastapi depends on it
+#pydantic_settings
+-e ../pokeapi_wrapper_lib

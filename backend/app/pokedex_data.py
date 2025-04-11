@@ -1,22 +1,22 @@
 # backend/app/pokedex_data.py
 
 import logging
-from typing import List, Optional, Any
-from functools import lru_cache # Consider using Redis cache instead of in-memory lru_cache if needed across instances
+from typing import List, Optional, Any, Dict
 import asyncio
 
 from .config import settings
 #from .cache_utils import get_backend_cache, set_backend_cache, clear_backend_cache
 
 from pokeapi_lib import (
-    get_pokemon, get_species, get_all_generations, get_all_types, # Import list functions
-    BasePokemon, BaseSpecies, GenerationInfo, TypeInfo, # Import library models
+    get_pokemon, get_species, get_generation, get_type, # Import single functions
+    get_all_generations, get_all_types, get_evolution_chain, # Import list functions
+    BasePokemon, BaseSpecies, GenerationInfo, TypeInfo, EvolutionChain, # Import library models
     PokeAPIError, ResourceNotFoundError
 )
 # --- Import Backend Models (needed for frontend response) ---
 from .models import (
     PokemonSummary, PokemonDetail, PokemonType, Generation, PokemonTypeFilter,
-    PokemonAbility, PokemonStat, PokemonSprites # Need these detailed models
+    PokemonAbility, PokemonStat, PokemonSprites
 )
 # --- Import Backend HTTP client getter ---
 from .clients import get_library_client
@@ -47,6 +47,40 @@ async def clear_backend_cache(key: str):
      logger.warning(f"Backend cache CLEAR: {key} (delete function needed in lib)")
      # await lib_clear_cache(key) # If implemented
      pass
+
+# --- Helpers ---
+def _format_generation_id(gen_id):
+    romanMap = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX' }
+    return romanMap.get(gen_id, str(gen_id))
+
+def _extract_english_genus(genera_list: List[Dict[str, Any]]) -> str:
+    for entry in genera_list:
+        if isinstance(entry, dict) and entry.get("language", {}).get("name") == "en":
+            return entry.get("genus", "Unknown Genus")
+    return "Unknown Genus"
+
+def _extract_english_flavor_text(flavor_list: List[Dict[str, Any]]) -> str:
+     # Prefer a more recent version if possible, fallback to first English
+     preferred_versions = ['scarlet', 'violet', 'sword', 'shield', 'lets-go-pikachu', 'ultra-sun'] # Example order
+     english_entries = [e for e in flavor_list if isinstance(e, dict) and e.get('language',{}).get('name') == 'en']
+     for version_name in preferred_versions:
+          for entry in english_entries:
+               if entry.get('version',{}).get('name') == version_name:
+                    return entry.get('flavor_text', '').replace('\n', ' ').replace('\f', ' ').strip()
+     # Fallback to first English entry found
+     if english_entries:
+         return english_entries[0].get('flavor_text', '').replace('\n', ' ').replace('\f', ' ').strip()
+     return "No description available."
+
+def _calculate_gender_ratio(gender_rate: int) -> str:
+     if gender_rate < 0: return 'Genderless'
+     if gender_rate == 0: return '100% Male'
+     if gender_rate == 8: return '100% Female'
+     female_chance = (gender_rate / 8) * 100
+     return f"{100 - female_chance:.1f}% Male, {female_chance:.1f}% Female"
+
+def _calculate_hatch_time(hatch_counter: Optional[int]) -> str:
+     return f"~{(hatch_counter + 1) * 255} steps" if hatch_counter is not None and hatch_counter >= 0 else 'N/A'
 
 async def _fetch_pokemon_summary(pokemon_id: int) -> Optional[PokemonSummary]:
     """Fetches and processes summary data for a single Pokémon from PokeAPI, including sprite."""
@@ -153,58 +187,38 @@ async def get_pokedex_summary_data(force_refresh: bool = False) -> Optional[List
     logger.info("Fetching fresh Pokedex summary data via library...")
     all_pokemon_summaries: List[PokemonSummary] = []
     client = await get_library_client()
-    
+
     async def fetch_single_summary(pokemon_id: int) -> Optional[PokemonSummary]:
-         try:
-            client = await get_library_client()
+        try:
             base_pokemon = await get_pokemon(pokemon_id, client=client)
-            # --- Need species for generation, flags ---
-            species_url_from_lib = base_pokemon.species.get('url')
-            if not species_url_from_lib:
-                 logger.warning(f"Summary fetch skipped: Missing species URL for {pokemon_id}")
-                 return None
-            base_species = await get_species(pokemon_id, client=client) # Use ID
+            base_species = await get_species(pokemon_id, client=client)
+            generation_info = await get_generation(base_species.generation.name, client=client) if base_species.generation else None
 
-            generation_name = base_species.generation
-            generation_id = _generation_name_to_id(generation_name) if generation_name else 0
-
-            # Get sprite URL (library model should provide transformed URL if local mode)
-            sprite_url = base_pokemon.sprites.front_default # Adjust if library model names differ
-
-            # Map types
-            types = [PokemonType(name=t.type.name) for t in base_pokemon.types]
+            sprite_url = base_pokemon.sprites.front_default # Assumes library transformed URL
 
             return PokemonSummary(
                  id=base_pokemon.id,
                  name=base_pokemon.name,
-                 generation_id=generation_id,
-                 types=types,
+                 generation_id=generation_info.id if generation_info else 0,
+                 types=[PokemonType(name=t.type.name) for t in base_pokemon.types],
                  sprite_url=sprite_url,
                  is_legendary=base_species.is_legendary,
                  is_mythical=base_species.is_mythical,
                  is_baby=base_species.is_baby
             )
-         except ResourceNotFoundError:
-            logger.warning(f"Summary fetch skipped: Pokemon/Species {pokemon_id} not found via library.")
+        except (ResourceNotFoundError, PokeAPIError, Exception) as e:
+            logger.warning(f"Summary fetch skipped for ID {pokemon_id}: {type(e).__name__}")
             return None
-         except Exception as e:
-             logger.error(f"Failed to fetch summary components for ID {pokemon_id} via library: {e}", exc_info=False)
-             return None
 
-    # Fetch summaries concurrently
     tasks = [fetch_single_summary(i) for i in range(1, settings.max_pokemon_id_to_fetch + 1)]
     results = await asyncio.gather(*tasks)
-
     all_pokemon_summaries = [summary for summary in results if summary is not None]
 
     if all_pokemon_summaries:
-         # Cache the final list of PokemonSummary objects
          await set_backend_cache(POKEDEX_SUMMARY_CACHE_KEY, [s.model_dump() for s in all_pokemon_summaries])
-         logger.info(f"Pokedex summary data cached successfully in backend cache ({len(all_pokemon_summaries)} entries).")
+         logger.info(f"Pokedex summary data cached in backend ({len(all_pokemon_summaries)} entries).")
          return all_pokemon_summaries
-    else:
-        logger.error("Failed to aggregate any Pokedex summary data via library.")
-        return None
+    else: logger.error("Failed to aggregate Pokedex summary data via library."); return None
 
 async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool = False) -> Optional[PokemonDetail]:
     """
@@ -217,8 +231,8 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
     Returns:
         A PokemonDetail object, or None if not found or error.
     """
-    cache_key = f"{POKEMON_DETAIL_CACHE_PREFIX}{pokemon_id_or_name}"
     identifier_str = str(pokemon_id_or_name).lower()
+    cache_key = f"{POKEMON_DETAIL_CACHE_PREFIX}{identifier_str}"
 
     if not force_refresh:
         cached_detail = await get_backend_cache(cache_key)
@@ -235,103 +249,85 @@ async def get_pokemon_detail_data(pokemon_id_or_name: str, force_refresh: bool =
     logger.info(f"Fetching fresh Pokémon detail data for '{identifier_str}' via library...")
     try:
         client = await get_library_client()
+        # Fetch required data concurrently
+        base_pokemon_task = get_pokemon(identifier_str, client=client)
+        # Need species ID after getting base_pokemon if identifier was name
+        base_pokemon = await base_pokemon_task
+        species_task = get_species(base_pokemon.id, client=client)
+        base_species = await species_task
 
-        # Fetch base Pokemon data and species data concurrently using the library
-        # Species might use ID or name, library handles this if implemented consistently
-        # Need species ID. Get it from pokemon data if identifier was name.
-        # Or fetch pokemon first, then species using pokemon.id
-        base_pokemon = await get_pokemon(identifier_str, client=client)
-        
-        # --- Get species URL from the species dictionary ---
-        species_url_from_lib = base_pokemon.species.get('url') if base_pokemon.species else None
-        if not species_url_from_lib:
-             # Handle case where species dict or URL might be missing
-             logger.error(f"Species URL missing in BasePokemon object for {identifier_str}")
-             # Decide how to handle: raise error, return None, or continue with missing data?
-             # For now, let's try to continue but some fields will be missing
-             base_species = BaseSpecies(id=base_pokemon.id, name=base_pokemon.species.get('name', ''), # Minimal BaseSpecies if fetch fails
-                                         order=-1, gender_rate=-1, capture_rate=0, is_baby=False,
-                                         is_legendary=False, is_mythical=False, generation='unknown',
-                                         evolution_chain_url='')
-        else:
-            # Fetch species using the extracted URL (or ID)
-            base_species = await get_species(base_pokemon.id, client=client) # Fetching by ID is usually safer
+        # Fetch evolution chain if URL exists
+        evo_chain = None
+        evo_chain_url = base_species.evolution_chain['url'] if base_species.evolution_chain else None
+        if evo_chain_url:
+            try:
+                chain_id = int(evo_chain_url.split('/')[-2]) # Extract ID from URL
+                evo_chain = await get_evolution_chain(chain_id, client=client)
+            except (ValueError, IndexError, PokeAPIError) as evo_err:
+                logger.warning(f"Could not fetch/process evolution chain from {evo_chain_url}: {evo_err}")
 
-        # --- TODO: Fetch other data via library if needed ---
-        # e.g., evolution_chain = await get_evolution_chain(...)
-        # e.g., generation_detail = await get_generation(...) to get region name reliably
-        # For now, we rely on data available in BasePokemon and BaseSpecies
+        # Fetch generation details for region name
+        generation_info = None
+        if base_species.generation:
+            try:
+                generation_info = await get_generation(base_species.generation.name, client=client)
+            except Exception as gen_err:
+                 logger.warning(f"Could not fetch generation details for {base_species.generation.name}: {gen_err}")
 
-        # --- Combine data into the frontend's PokemonDetail model ---
-        # This requires mapping fields from BasePokemon/BaseSpecies to PokemonDetail
-        generation_name = base_species.generation # Name extracted by library model
-        generation_id = _generation_name_to_id(generation_name) if generation_name else 0
 
-        # Extract sprites (library model provides simplified structure)
-        # The library's PokemonSprites model validator already handles URL transformation
-        # We might need to adapt PokemonSprites in *this* backend's models.py
-        # to match the structure returned by the library's BasePokemon.sprites
-        # OR adapt the library's BasePokemon.sprites to match this backend's PokemonSprites.
-        # Let's assume for now library returns URLs directly and we map them.
-        # This part needs careful alignment between library models and backend models.
+        # --- Map Library Models to Backend PokemonDetail ---
+        # Sprites: Library handles transformation, pass dict directly
+        sprites_data = base_pokemon.sprites.model_dump()
 
-        # Example mapping (ADJUST BASED ON ACTUAL LIBRARY MODELS)
-        sprites_for_detail = PokemonSprites(
-             front_default=base_pokemon.sprites.front_default,
-             front_shiny=base_pokemon.sprites.front_shiny,
-             official_artwork=base_pokemon.sprites.official_artwork_front,
-             # Add animated etc. based on library's BasePokemon.sprites fields
+        # Convert height/weight
+        height_m = base_pokemon.height
+        weight_kg = base_pokemon.weight
+
+        # Extract simple lists of names
+        egg_group_names = [eg.name for eg in base_species.egg_groups]
+
+        # Process names/text
+        genus = _extract_english_genus(base_species.genera)
+        description = _extract_english_flavor_text(base_species.flavor_text_entries)
+        gender_ratio_str = _calculate_gender_ratio(base_species.gender_rate)
+        hatch_time_str = _calculate_hatch_time(base_species.hatch_counter)
+        evolves_from_name = base_species.evolves_from_species.name if base_species.evolves_from_species else None
+
+        detail = PokemonDetail(
+            id=base_pokemon.id,
+            name=base_pokemon.name,
+            genus=genus,
+            generation_id=generation_info.id if generation_info else 0, # Default if fetch failed
+            region_name=generation_info.region_name.capitalize() if generation_info else "Unknown", # Default
+            types=[PokemonType(name=t.type.name) for t in base_pokemon.types],
+            abilities=[PokemonAbility(name=a.ability.name, url=a.ability.url, is_hidden=a.is_hidden) for a in base_pokemon.abilities],
+            height=height_m,
+            weight=weight_kg,
+            base_experience=base_pokemon.base_experience,
+            stats=[PokemonStat(name=s.stat.name, base_stat=s.base_stat) for s in base_pokemon.stats],
+            sprites=PokemonSprites.model_validate(sprites_data), # Validate mapped sprite data
+            catch_rate=base_species.capture_rate,
+            base_happiness=base_species.base_happiness,
+            hatch_time=hatch_time_str,
+            is_baby=base_species.is_baby,
+            is_legendary=base_species.is_legendary,
+            is_mythical=base_species.is_mythical,
+            evolves_from=evolves_from_name,
+            gender_ratio=gender_ratio_str,
+            egg_groups=egg_group_names,
+            habitat=base_species.habitat.name if base_species.habitat else None,
+            shape=base_species.shape.name if base_species.shape else None,
+            growth_rate=base_species.growth_rate.name if base_species.growth_rate else None,
+            description=description,
+            evolution_chain=evo_chain.chain.model_dump() if evo_chain else None # Pass processed chain data (or define backend model)
         )
-        # The library's validator should handle URL transformation based on settings.sprite_source_mode
 
-        detail_data_dict = {
-            "id": base_pokemon.id,
-            "name": base_pokemon.name,
-            "genus": "Unknown Genus", # TODO: Get from species genera list if added to BaseSpecies
-            "generation_id": generation_id,
-            "types": [{"name": t.type.name} for t in base_pokemon.types], # Map from library structure
-            "abilities": [
-                PokemonAbility(name=a.ability.name, url=a.ability.url, is_hidden=a.is_hidden)
-                for a in base_pokemon.abilities
-            ], # Map from library structure
-            "height": base_pokemon.height,
-            "weight": base_pokemon.weight,
-            "base_experience": base_pokemon.base_experience,
-            "stats": [
-                 PokemonStat(name=s.stat.name, base_stat=s.base_stat) for s in base_pokemon.stats
-            ], # Map from library structure
-            "sprites": sprites_for_detail.model_dump(), # Use the mapped sprites
-            "species_url": species_url_from_lib or "", # Use the URL obtained from BasePokemon
-            "evolution_chain_url": base_species.evolution_chain_url if base_species else "", # Get from BaseSpecies
-            "flavor_text_entries": [], # TODO: Get from species flavor text if added to BaseSpecies
-            "catch_rate": base_species.capture_rate if base_species else None,
-            "base_happiness": base_species.base_happiness if base_species else None,
-            "hatch_counter": base_species.hatch_counter,
-            "is_baby": base_species.is_baby,
-            "is_legendary": base_species.is_legendary,
-            "is_mythical": base_species.is_mythical,
-            "evolves_from_species": base_species.evolves_from_species,
-            "gender_rate": base_species.gender_rate,
-            "egg_groups": [], # TODO: Get from species egg_groups if added to BaseSpecies
-            "habitat": None, # TODO: Get from species habitat if added to BaseSpecies
-            "shape": None, # TODO: Get from species shape if added to BaseSpecies
-            "growth_rate_name": None, # TODO: Get from species growth_rate if added to BaseSpecies
-        }
-
-        # Validate final combined data against the detailed backend model
-        pokemon_detail = PokemonDetail.model_validate(detail_data_dict)
-
-        # Cache the final PokemonDetail object
-        await set_backend_cache(cache_key, pokemon_detail.model_dump())
+        await set_backend_cache(cache_key, detail.model_dump())
         logger.info(f"Successfully fetched and combined details for '{identifier_str}'.")
-        return pokemon_detail
+        return detail
 
-    except ResourceNotFoundError:
-        logger.warning(f"Resource not found via library for '{identifier_str}'.")
-        return None # Propagate not found
-    except (PokeAPIError, Exception) as e:
-        logger.error(f"Error fetching/processing details via library for '{identifier_str}': {e}", exc_info=True)
-        return None # Return None on other library errors or processing errors
+    except ResourceNotFoundError: logger.warning(f"Resource not found via library for '{identifier_str}'."); return None
+    except (PokeAPIError, Exception) as e: logger.error(f"Error fetching/processing details via library for '{identifier_str}': {e}", exc_info=True); return None
 
 async def get_all_generations_data(force_refresh: bool = False) -> Optional[List[Generation]]:
     """
@@ -353,32 +349,30 @@ async def get_all_generations_data(force_refresh: bool = False) -> Optional[List
     logger.info("Fetching fresh generations data via library...")
     try:
         client = await get_library_client()
-        # Call the library function to get all generations
-        library_generations: List[GenerationInfo] = await get_all_generations(client=client)
+        library_generations = await get_all_generations(client=client) # Use library list function
+        if not library_generations: return []
 
-        if not library_generations:
-            logger.warning("Library returned no generation data.")
-            return [] # Return empty list if none found
+        # Map to backend Generation model (adding count and roman numeral)
+        all_pokemon = await get_pokedex_summary_data() # Get summary data for counts
+        if all_pokemon is None: all_pokemon = [] # Handle error case
 
-        # Map from library's GenerationInfo to backend's Generation model
         backend_generations: List[Generation] = []
         for lib_gen in library_generations:
-             try:
-                  # Assuming backend's Generation model is identical or subset for now
-                  backend_gen = Generation.model_validate(lib_gen.model_dump())
-                  backend_generations.append(backend_gen)
-             except Exception as map_err:
-                  logger.error(f"Failed to map library generation '{lib_gen.name}' to backend model: {map_err}")
-                  continue # Skip this generation if mapping fails
+             count = sum(1 for p in all_pokemon if p.generation_id == lib_gen.id)
+             backend_gen = Generation(
+                  id=lib_gen.id,
+                  name=lib_gen.name,
+                  region_name=lib_gen.region_name,
+                  roman_numeral=_format_generation_id(lib_gen.id),
+                  count=count
+             )
+             backend_generations.append(backend_gen)
 
-        # Cache the backend model list
         await set_backend_cache(GENERATIONS_CACHE_KEY, [g.model_dump() for g in backend_generations])
-        logger.info(f"Generations data cached successfully in backend cache ({len(backend_generations)} entries).")
+        logger.info(f"Generations data cached in backend ({len(backend_generations)} entries).")
         return backend_generations
 
-    except (PokeAPIError, Exception) as e:
-        logger.error(f"Failed to get generations via library: {e}", exc_info=True)
-        return None # Return None on failure
+    except (PokeAPIError, Exception) as e: logger.error(f"Failed to get generations via library: {e}", exc_info=True); return None
 
 async def get_all_types_data(force_refresh: bool = False) -> Optional[List[PokemonTypeFilter]]:
     """
@@ -400,32 +394,17 @@ async def get_all_types_data(force_refresh: bool = False) -> Optional[List[Pokem
     logger.info("Fetching fresh types data via library...")
     try:
         client = await get_library_client()
-        # Call the library function to get all types
-        library_types: List[TypeInfo] = await get_all_types(client=client)
+        library_types = await get_all_types(client=client) # Use library list function
+        if not library_types: return []
 
-        if not library_types:
-            logger.warning("Library returned no type data.")
-            return []
+        # Map to backend PokemonTypeFilter model (just name needed)
+        backend_types = [PokemonTypeFilter(name=t.name) for t in library_types]
 
-        # Map from library's TypeInfo to backend's PokemonTypeFilter model
-        # In this case, they both likely only need 'name'
-        backend_types: List[PokemonTypeFilter] = []
-        for lib_type in library_types:
-             try:
-                  backend_type = PokemonTypeFilter(name=lib_type.name)
-                  backend_types.append(backend_type)
-             except Exception as map_err:
-                  logger.error(f"Failed to map library type '{lib_type.name}' to backend model: {map_err}")
-                  continue
-
-        # Cache the backend model list
         await set_backend_cache(TYPES_CACHE_KEY, [t.model_dump() for t in backend_types])
-        logger.info(f"Types data cached successfully in backend cache ({len(backend_types)} entries).")
+        logger.info(f"Types data cached in backend ({len(backend_types)} entries).")
         return backend_types
 
-    except (PokeAPIError, Exception) as e:
-        logger.error(f"Failed to get types via library: {e}", exc_info=True)
-        return None # Return None on failure
+    except (PokeAPIError, Exception) as e: logger.error(f"Failed to get types via library: {e}", exc_info=True); return None
 
 # Example Usage (for testing within this module)
 async def main():
