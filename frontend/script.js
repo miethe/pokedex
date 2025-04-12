@@ -526,7 +526,9 @@ document.addEventListener('DOMContentLoaded', () => {
             { type: "Official Artwork", url: data.sprites?.official_artwork },
             { type: "Default", url: data.sprites?.front_default },
             { type: "Shiny", url: data.sprites?.front_shiny },
+            { type: "Animated Back Default", url: data.sprites?.animated_back_default },
             { type: "Animated Shiny", url: data.sprites?.animated_front_shiny },
+            { type: "Animated Back Shiny", url: data.sprites?.animated_back_shiny },
             { type: "Back", url: data.sprites?.back_default },
             { type: "Shiny Back", url: data.sprites?.back_shiny },
             // Optional Female variants

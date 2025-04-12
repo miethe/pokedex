@@ -1,0 +1,70 @@
+# pokedex_project/docker-compose.yml
+
+version: '3.8' # Specify compose file version
+
+services:
+  # Backend Service (FastAPI App)
+  backend:
+    build:
+      target: development # Build the development stage
+      context: ../ # Build context is the current directory (project root)
+      dockerfile: pokedex_project/Dockerfile.backend # Specify the backend Dockerfile
+    container_name: pokedex_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env # Load environment variables from .env file
+    depends_on:
+      - redis # Wait for Redis to be healthy (optional, app should handle connection issues)
+    networks:
+      - pokedex_network
+    # Optional: Expose port 8000 only to localhost on the host machine for direct API testing
+    # ports:
+    #   - "127.0.0.1:8000:8000"
+
+  # Redis Service
+  redis:
+    image: redis:7-alpine # Use official Redis image
+    container_name: pokedex_redis
+    hostname: redis # Service name used by backend to connect
+    restart: unless-stopped
+    volumes:
+      # Persist Redis data using a named volume
+      # Append ':Z' for SELinux compatibility on systems like Fedora with Podman
+      - redis_data:/data:Z
+    ports:
+      # Expose Redis port only to localhost on the host machine for debugging (e.g., using redis-cli)
+      - "127.0.0.1:6379:6379"
+    networks:
+      - pokedex_network
+    # Optional: Add redis command arguments if needed
+    # command: redis-server --save 60 1 --loglevel warning
+
+  # Frontend Service (Nginx + Static Files + Proxy)
+  frontend:
+    build:
+      context: . # Build context is the current directory
+      dockerfile: Dockerfile.frontend # Specify the frontend Dockerfile
+    container_name: pokedex_frontend_nginx
+    restart: unless-stopped
+    ports:
+      # Map port 8080 on the host to port 80 in the container
+      # Access the app via http://localhost:8080
+      - "8080:80"
+    depends_on:
+      - backend # Nginx proxy needs the backend to be available
+    networks:
+      - pokedex_network
+    # --- Optional: Mount local assets for development ---
+    # This allows changing frontend files (HTML, CSS, JS, Sprites)
+    # without rebuilding the frontend image. Remove for production.
+    volumes:
+       - ./frontend:/usr/share/nginx/html:ro,Z
+
+# Define Networks
+networks:
+  pokedex_network:
+    driver: bridge # Use the default bridge network driver
+
+# Define Named Volumes
+volumes:
+  redis_data: # Volume for Redis data persistence

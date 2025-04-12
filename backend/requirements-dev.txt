@@ -1,7 +1,12 @@
-# backend/requirements-dev.txt
-pytest
-pytest-asyncio
-pytest-cov # For coverage reports
-httpx # Already have this, but good to list explicitly
-respx # For mocking HTTP requests
-# fakeredis-py # Optional, for fake redis
+# backend/requirements.txt
+
+fastapi
+uvicorn[standard]
+httpx
+#redis[hiredis]>=4.4.0 # Use a version supporting async and hiredis for performance
+python-dotenv         # For loading .env file (optional but good practice)
+pydantic>=2.0              # Explicitly list for clarity, though fastapi depends on it
+pydantic_settings
+#pokeapi-wrapper-lib @ git+https://github.com/miethe/pokeapi_wrapper_lib
+-e /app/pokeapi_wrapper_lib
+#-e /mnt/containers/pokeapi_wrapper_lib

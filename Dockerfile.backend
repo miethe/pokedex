@@ -1,7 +1,7 @@
 # pokedex_project/Dockerfile.backend
 
 # Use an official Python runtime as a parent image
-FROM python:3.10-slim
+FROM python:3.10-slim as base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -10,26 +10,62 @@ ENV PYTHONUNBUFFERED 1
 # Set work directory
 WORKDIR /app
 
+# Install common OS dependencies if needed (e.g., for hiredis compilation)
+# 'apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*' is a common pattern
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
+
+# ---- Development Stage ----
+FROM base as development
+WORKDIR /app
+
 # --- Install git ---
 # Update package lists and install git. Clean up apt cache afterwards.
-# 'apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*' is a common pattern
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends git && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git 
 
-# Install dependencies
-# Copy only requirements first to leverage Docker cache
-COPY ./backend/requirements.txt .
+# Copy library source FIRST for editable install reference
+COPY ./pokeapi_wrapper_lib /app/pokeapi_wrapper_lib
+
+# --- Copy ALL necessary source code FIRST ---
+# Copy backend application code
+COPY ./pokedex_project/backend /app/backend
+# Copy the library source code into the image
+COPY ./pokeapi_wrapper_lib /app/pokeapi_wrapper_lib
+
+# Install ALL dependencies (including dev and editable library)
+COPY ./pokedex_project/backend/requirements-dev.txt /app/backend/requirements-dev.txt
+#COPY ./pokedex_project/backend/requirements.txt /app/backend/requirements.txt # Also copy base reqs
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r /app/backend/requirements-dev.txt
 
-# Copy the rest of the backend application code
+# Set WORKDIR for running commands easily during development
+WORKDIR /app/backend
+
+# Default command for development (e.g., run tests or server with reload)
+CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+
+# ---- Production Stage ----
+FROM base as production
+WORKDIR /app
+
+# Install only PRODUCTION dependencies from PyPI/Git tag
+COPY ./backend/requirements.txt /app/requirements.txt
+# Note: This assumes pokeapi_wrapper_lib is listed in requirements.txt
+# pointing to PyPI or a specific Git tag/commit for production
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy ONLY the backend application code needed for production
 COPY ./backend/app /app/app
+COPY ./backend/.env /app/.env # Copy prod .env if needed (or use compose env_file)
 
-# Expose the port the app runs on
+# Expose port
 EXPOSE 8000
 
-# Define the command to run the application
-# Use 0.0.0.0 to allow connections from other Docker containers (like Nginx)
-# Use app.main:app because our FastAPI 'app' instance is in /app/app/main.py
+# Production command (no reload)
+# Assumes code is copied directly into /app/app
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    
+# --- Install dependencies ---
+# Now that library code is present, install requirements
+# Requirements file refers to the library via its path inside the image
+#COPY ./pokedex_project/backend/requirements.txt /app/backend/requirements.txt
