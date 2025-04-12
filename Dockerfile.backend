@@ -18,10 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 FROM base as development
 WORKDIR /app
 
-# --- Install git ---
-# Update package lists and install git. Clean up apt cache afterwards.
-RUN apt-get update && apt-get install -y --no-install-recommends git 
-
 # Copy library source FIRST for editable install reference
 COPY ./pokeapi_wrapper_lib /app/pokeapi_wrapper_lib
 
@@ -47,8 +43,13 @@ CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000
 FROM base as production
 WORKDIR /app
 
+# --- Install git ---
+# Update package lists and install git. Clean up apt cache afterwards.
+RUN apt-get update && apt-get install -y --no-install-recommends git 
+
 # Install only PRODUCTION dependencies from PyPI/Git tag
 COPY ./backend/requirements.txt /app/requirements.txt
+
 # Note: This assumes pokeapi_wrapper_lib is listed in requirements.txt
 # pointing to PyPI or a specific Git tag/commit for production
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -56,7 +57,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy ONLY the backend application code needed for production
 COPY ./backend/app /app/app
-COPY ./backend/.env /app/.env # Copy prod .env if needed (or use compose env_file)
+COPY ./backend/.env /app/.env 
+# Copy prod .env if needed (or use compose env_file)
 
 # Expose port
 EXPOSE 8000
