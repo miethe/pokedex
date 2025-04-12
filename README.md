@@ -246,6 +246,11 @@ If you prefer to run the backend directly on your host machine for faster develo
 *   **Cache Population:** The backend attempts to pre-populate the main Pokedex summary cache on startup if it's empty.
 *   **Cache TTL:** Data is cached with a default TTL of 24 hours (configurable in `backend/app/config.py`).
 *   **Manual Refresh:** The optional `/api/admin/cache/refresh` (POST) endpoint can be used to force-refresh specific cache keys (e.g., `pokedex_summary_data`, `pokemon_detail_pikachu`). Use tools like `curl` or Postman to send POST requests to this endpoint (see [API Endpoints](#api-endpoints)).
+    1. `curl -X POST "http://<your-fedora-vm-ip>:8080/api/admin/cache/refresh?cache_key=pokedex_summary_data"`
+    2. `curl -X POST "http://<your-fedora-vm-ip>:8080/api/admin/cache/refresh?cache_key=generations_data"`
+    3. `curl -X POST "http://<your-fedora-vm-ip>:8080/api/admin/cache/refresh?cache_key=types_data"`
+    4. `curl -X POST "http://<your-fedora-vm-ip>:8080/api/admin/cache/refresh?cache_key=pokemon_detail_bulbasaur`
+    Or using ID `curl -X POST "http://localhost:8080/api/admin/cache/refresh?cache_key=pokemon_detail_1"`
 *   **Clearing Redis:** You can connect to the Redis container (`docker exec -it pokedex_redis redis-cli` or `podman exec ...`) and use commands like `FLUSHDB` (clears current DB) or `DEL <key_name>` to manage the cache directly if needed.
 
 ## Contributing

@@ -429,12 +429,12 @@ async def main():
     # else:
     #     print("Failed to retrieve Pokedex summary data.")
 
-    # Fetch and print detail for Bulbasaur
-    bulbasaur_detail = await get_pokemon_detail_data("bulbasaur", force_refresh=True) # Force refresh for first run
-    if bulbasaur_detail:
-        print("\nBulbasaur Detail:\n", bulbasaur_detail.model_dump_json(indent=2))
+    # Fetch and print detail for Given Pokemon
+    test_pokemon_detail = await get_pokemon_detail_data("venusaur", force_refresh=True) # Force refresh for first run
+    if test_pokemon_detail:
+        print("\Pokemon Detail:\n", test_pokemon_detail.model_dump_json(indent=2))
     else:
-        print("Failed to retrieve Bulbasaur detail data.")
+        print("Failed to retrieve Pokemon detail data.")
 
     # # # Fetch and print generations data
     # generations = await get_all_generations_data(force_refresh=True)

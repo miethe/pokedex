@@ -45,6 +45,7 @@ class PokemonSprites(BaseModel):
     back_female: Optional[str] = None
     front_shiny_female: Optional[str] = None
     back_shiny_female: Optional[str] = None
+    official_artwork: Optional[str] = None # Naming matches library model output
     official_artwork_front: Optional[str] = None # Naming matches library model output
     animated_front_default: Optional[str] = None # Naming matches library model output
     animated_front_shiny: Optional[str] = None # Naming matches library model output
