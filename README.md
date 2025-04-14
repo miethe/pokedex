@@ -99,36 +99,41 @@ The backend API (`pokedex_project/backend`) provides the following endpoints (ac
 *(See `backend/app/main.py` and `backend/app/models.py` for response models specific to this backend API.)*
 
 ## Project Structure
+
+<pre>
 pokedex_project/
 ├── backend/
-│ ├── app/ # Core FastAPI application consuming the library
-│ │ ├── init.py
-│ │ ├── clients.py # Manages httpx client used for the library
-│ │ ├── cache_utils.py # (Optional) Wrapper for backend caching
-│ │ ├── config.py # Backend configuration (Redis URL, Sprite Mode)
-│ │ ├── main.py # FastAPI app, endpoints, lifespan, middleware
-│ │ ├── models.py # Pydantic models for the frontend API response
-│ │ └── pokedex_data.py # Calls library, aggregates/maps data, caches final results
-│ ├── requirements.txt # Production dependencies (incl. published library)
-│ ├── requirements-dev.txt # Dev dependencies (incl. local editable library)
-│ └── .env # Environment variables - Gitignored
+│   ├── app/                         # Core FastAPI application consuming the library
+│   │   ├── __init__.py
+│   │   ├── clients.py               # Manages httpx client used for the library
+│   │   ├── cache_utils.py           # (Optional) Wrapper for backend caching
+│   │   ├── config.py                # Backend configuration (Redis URL, Sprite Mode)
+│   │   ├── main.py                  # FastAPI app, endpoints, lifespan, middleware
+│   │   ├── models.py                # Pydantic models for the frontend API response
+│   │   └── pokedex_data.py          # Calls library, aggregates/maps data, caches results
+│   ├── requirements.txt             # Production dependencies (incl. published library)
+│   ├── requirements-dev.txt         # Dev dependencies (incl. local editable library)
+│   └── .env                         # Gitignored
 ├── frontend/
-│ ├── assets/ # Static assets
-│ │ ├── icons/color/*.svg # Type icons
-│ │ ├── images/logo.png # Logo
-│ │ └── sprites/ # Cloned PokeAPI sprites repo (gitignored or handled separately)
-│ ├── index.html # Main HTML file
-│ ├── style.css # CSS styles
-│ ├── script.js # JavaScript logic
-│ ├── 404.html # Custom Not Found page
-│ ├── 50x.html # Custom Server Error page
-│ └── nginx.conf # Custom Nginx configuration
-├── Dockerfile.backend # Multi-stage Dockerfile for Backend service
-├── Dockerfile.frontend # Dockerfile for Nginx + Frontend service
-├── docker-compose.yml # Base Docker Compose file (prod-like)
-├── docker-compose.override.yml # Development overrides (volume mounts, dev commands)
-├── docker-compose.prod.yml # (Optional) Production-specific overrides
-└── README.md # This file
+│   ├── assets/                      # Static assets
+│   │   ├── icons/color/             # Type icons
+│   │   │   └── *.svg
+│   │   ├── images/
+│   │   │   └── logo.png             
+│   │   └── sprites/                 # Cloned PokeAPI sprites repo (gitignored or handled separately)
+│   ├── index.html                   
+│   ├── style.css                    
+│   ├── script.js                    # JavaScript logic for dynamic rendering
+│   ├── 404.html                     
+│   ├── 50x.html                     
+│   └── nginx.conf                   
+├── Dockerfile.backend              # Multi-stage Dockerfile for Backend service
+├── Dockerfile.frontend            # Dockerfile for Nginx + Frontend service
+├── docker-compose.yml             # Base Docker Compose file (prod-like)
+├── docker-compose.override.yml    # Development overrides (volume mounts, dev commands)
+├── docker-compose.prod.yml        # (Optional) Production-specific overrides
+└── README.md                      
+</pre>
 
 ### Assumed Sibling Directory (referenced in requirements-dev.txt and override.yml)
 ../pokeapi_wrapper_lib/
