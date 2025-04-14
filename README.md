@@ -1,10 +1,12 @@
-# Modern Pokedex Web Application
+# Modern Pokedex Web Application (v2 - Refactored)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A dynamic Pokedex web application built from scratch, featuring a Python/FastAPI backend with Redis caching, consumed by a separate HTML/CSS/JavaScript frontend, and orchestrated using Docker Compose (or Podman Compose).
+A dynamic Pokedex web application featuring a Python/FastAPI backend API that consumes a dedicated PokeAPI wrapper library (`pokeapi_wrapper_lib`), utilizes Redis caching, serves a separate HTML/CSS/JavaScript frontend via Nginx, and is orchestrated using Docker Compose (or Podman Compose).
 
-This project serves as a modern replacement for simpler static Pokedex implementations, offering better performance, scalability, and extensibility.
+This project displays detailed Pokémon information with advanced filtering and optimized performance.
+
+**Note:** This project depends on the separate `pokeapi_wrapper_lib` library. See its repository for details on the library itself: [Link to your library repo if separate, otherwise reference local path]
 
 ## Table of Contents
 
@@ -17,8 +19,8 @@ This project serves as a modern replacement for simpler static Pokedex implement
     -   [Prerequisites](#prerequisites)
     -   [Installation & Setup](#installation--setup)
 -   [Running the Application](#running-the-application)
-    -   [Using Docker Compose / Podman Compose (Recommended)](#using-docker-compose--podman-compose-recommended)
-    -   [Local Backend Development (Optional)](#local-backend-development-optional)
+    -   [Development (Docker Compose w/ Override)](#development-docker-compose-w-override)
+    -   [Production (Docker Compose)](#production-docker-compose)
 -   [Cache Management](#cache-management)
 -   [Contributing](#contributing)
 -   [License](#license)
@@ -26,112 +28,110 @@ This project serves as a modern replacement for simpler static Pokedex implement
 
 ## Features
 
-*   **Full Pokemon Listing:** Displays a filterable list of all Pokémon up to the configured generation.
+*   **Full Pokemon Listing:** Displays a filterable grid of all Pokémon up to the configured generation, including default sprites and status indicators (Legendary ★, Mythical ✧, Baby 🍼).
 *   **Detailed View:** Modal popup showing comprehensive details for a selected Pokémon:
-    *   ID, Name, Genus, Types
-    *   Interactive Sprite Gallery (Animated preferred, Static fallback, Shiny, Other variants with hover titles)
-    *   Physical Attributes (Height, Weight, Shape, Habitat)
-    *   Abilities (including Hidden)
-    *   Base Stats with **colored percentage bars**
-    *   Breeding Information (Gender Ratio, Egg Groups, Hatch Time)
-    *   Species Information (Catch Rate, Base Happiness, Growth Rate, Base Exp)
-    *   Classifications (Legendary, Mythical, Baby, Evolves From)
-    *   Flavor Text Description
-    *   Clickable Evolution Chain
-*   **Advanced Filtering:**
+    *   Header with Name & National Pokédex ID.
+    *   Generation & Region indicators.
+    *   Interactive Sprite Gallery (Animated preferred, Official Artwork, Static fallback, Shiny, etc.) with hover titles and click-to-view main sprite update.
+    *   Full-size Sprite Viewer (Lightbox) activated by clicking the main sprite, with navigation arrows and zoom toggle.
+    *   Info cards for Types, Physical Attributes, Abilities, Base Stats (with colored bars), Breeding Info, Species Info, Classifications.
+    *   Flavor Text Description.
+    *   Clickable Evolution Chain.
+*   **Advanced Filtering & UI:**
     *   Search by Name or National Pokédex ID.
-    *   Filter by Generation (Dropdown).
-    *   Filter by Type(s) using checkboxes with AND logic.
-    *   Filter by Status: Checkboxes for **Baby, Legendary, and Mythical** Pokémon (OR logic between statuses).
+    *   Filter by Generation using dedicated buttons (showing Region name & count).
+    *   Filter by Type(s) using icons with hover text (AND logic).
+    *   Filter by Status (Baby, Legendary, Mythical) using checkboxes (OR logic between statuses).
+    *   Results counter displaying shown/total Pokémon based on filters.
+    *   "Clear Filters" and "Reset Search" buttons.
+    *   Scroll-to-top button.
 *   **Performance Optimization:**
-    *   Backend caching using **Redis** for both the aggregated Pokémon summary list and individual Pokémon details to minimize external API calls to PokeAPI.
-    *   Configurable cache TTL (default 24 hours).
-    *   Efficient frontend rendering and lazy loading of list images.
-*   **Containerized Deployment:** Fully containerized using **Docker/Podman** and orchestrated with **Docker Compose/Podman Compose** for easy setup and deployment.
-*   **Clean Architecture:** Separation of concerns between the frontend (UI presentation), backend (business logic, data fetching/caching), and external API.
-*   **API Documentation:** Backend includes automatic OpenAPI (Swagger UI) documentation at `/docs`.
+    *   Backend caching using **Redis** for aggregated list data and final Pokémon detail objects.
+    *   **PokeAPI calls are handled by the `pokeapi_wrapper_lib`, which has its own caching layer.**
+    *   Configurable (long) cache TTL. Manual refresh capability.
+    *   Frontend lazy loading of list images.
+*   **Error Handling:** User-friendly maintenance screen during cache refreshes, custom 404/50x error pages served by Nginx.
+*   **Containerized & Environment-Specific:** Fully containerized with distinct configurations for Development (live reload, code mounting) and Production (optimized builds, PyPI dependency).
 
 ## Architecture Overview
 
-The application follows a decoupled architecture:
+This application uses a decoupled architecture enhanced by a dedicated data access library:
 
-1.  **Frontend (HTML/CSS/JS):**
-    *   Responsible for the user interface and user interaction.
-    *   Served as static files by the Nginx container.
-    *   Communicates *only* with the application's own Backend API (via Nginx proxy) to fetch data.
-    *   Implements filtering logic based on data received from the backend summary endpoint.
-    *   Renders the Pokémon list and detail modal.
+1.  **Frontend (HTML/CSS/JS):** UI layer served by Nginx. Interacts *only* with this project's Backend API.
+2.  **Web Server / Reverse Proxy (Nginx):** Serves static frontend files, routes `/api/` requests to the Backend API, serves custom error pages.
+3.  **Backend API (Python/FastAPI):**
+    *   Provides the RESTful API (`/api/...`) consumed by the frontend.
+    *   **Consumes `pokeapi_wrapper_lib`:** Calls the library to get structured Pokémon data.
+    *   **Aggregates & Maps:** Combines data from library calls (e.g., base pokemon + species) and maps it to the specific `PokemonDetail`/`PokemonSummary` models required by the frontend.
+    *   **Caches Final Objects:** Caches the fully processed `PokemonDetail` and `PokemonSummary` list in Redis for fast frontend responses.
+    *   Handles application-level logic (e.g., maintenance state).
+4.  **PokeAPI Wrapper Library (`pokeapi_wrapper_lib`):** (External Dependency)
+    *   Handles all direct communication with the external `pokeapi.co`.
+    *   Provides Python functions (`get_pokemon`, `get_species`, etc.) returning Pydantic models (`BasePokemon`, `BaseSpecies`).
+    *   Contains its *own* Redis caching layer for raw/semi-processed PokeAPI responses.
+    *   Handles sprite URL transformation (local vs. remote).
+5.  **Cache (Redis):** Used by *both* the library (for PokeAPI responses) and the backend API (for final aggregated objects). Single Redis instance shared via Docker networking.
+6.  **Container Orchestration (Docker Compose / Podman Compose):** Manages all containers (Backend, Frontend/Nginx, Redis).
 
-2.  **Backend (Python/FastAPI):**
-    *   Provides a RESTful API for the frontend.
-    *   Aggregates and processes data fetched from the external `pokeapi.co`.
-    *   Implements robust caching logic using **Redis** via `redis-py`.
-    *   Uses `httpx` for asynchronous requests to the external PokeAPI.
-    *   Handles data validation using Pydantic models.
 
-3.  **Cache (Redis):**
-    *   An in-memory data store used to cache responses from `pokeapi.co`.
-    *   Significantly reduces latency and load on the external API.
-    *   Runs in its own dedicated container.
-
-4.  **Web Server / Reverse Proxy (Nginx):**
-    *   Serves the static frontend files (HTML, CSS, JS).
-    *   Acts as a reverse proxy, routing requests starting with `/api/` to the backend FastAPI container. This avoids CORS issues and provides a single entry point for the browser.
-    *   Runs in its own container alongside the frontend files.
-
-5.  **Container Orchestration (Docker Compose / Podman Compose):**
-    *   Defines and manages the multi-container application (Backend, Frontend/Nginx, Redis).
-    *   Sets up networking between containers.
-    *   Manages volumes for persistent data (e.g., Redis data).
-    
 ## Technology Stack
 
-*   **Backend:** Python 3.10+, FastAPI, Uvicorn, Pydantic, HTTPX, Redis-py, python-dotenv
+*   **Backend:** Python 3.10+, FastAPI, Uvicorn, Pydantic, HTTPX (for client used with library), python-dotenv
 *   **Frontend:** HTML5, CSS3, Vanilla JavaScript (ES6+)
+*   **Data Access Library:** `pokeapi_wrapper_lib` (separate Python package)
 *   **Caching:** Redis 7+
 *   **Web Server / Proxy:** Nginx (stable-alpine)
 *   **Containerization:** Docker / Podman, Docker Compose / Podman Compose
 
 ## API Endpoints
 
-The backend provides the following endpoints, accessible via the Nginx proxy (e.g., `http://localhost:8080/api/...` by default when running via Compose).
+The backend API (`pokedex_project/backend`) provides the following endpoints (accessed via Nginx at `/api/...`):
 
-| Method | Path                             | Description                                                                    | Query Params                 | Response Model              |
-| :----- | :------------------------------- | :----------------------------------------------------------------------------- | :--------------------------- | :-------------------------- |
-| `GET`  | `/` (Backend Root)               | Basic health check / welcome message for the API itself.                       | -                            | JSON `{message: str, ...}`  |
-| `GET`  | `/api/pokedex/summary`           | Get aggregated summary data (ID, Name, Gen, Types, Sprite, Status Flags) for all Pokémon.    | `force_refresh` (bool)       | `List[PokemonSummary]`      |
-| `GET`  | `/api/pokemon/{id_or_name}`      | Get detailed data for a specific Pokémon by ID or name.                        | `force_refresh` (bool)       | `PokemonDetail`             |
-| `GET`  | `/api/generations`               | Get a list of all Pokémon generations for filtering.                             | `force_refresh` (bool)       | `List[Generation]`          |
-| `GET`  | `/api/types`                     | Get a list of all Pokémon types for filtering.                                 | `force_refresh` (bool)       | `List[PokemonTypeFilter]`   |
-| `POST` | `/api/admin/cache/refresh`       | **(Optional)** Manually trigger a cache refresh for a specific key.            | `cache_key` (str, required)  | JSON `{message: str}`       |
+| Method | Path                             | Description                                                                                                  | Query Params                 | Response Model              |
+| :----- | :------------------------------- | :----------------------------------------------------------------------------------------------------------- | :--------------------------- | :-------------------------- |
+| `GET`  | `/` (Backend Root)               | Basic health check / welcome message for the API itself.                                                     | -                            | JSON `{message: str, ...}`  |
+| `GET`  | `/api/pokedex/summary`           | Get aggregated summary data (ID, Name, Gen, Types, Sprite URL, Status Flags) for all Pokémon.            | `force_refresh` (bool)       | `List[PokemonSummary]`      |
+| `GET`  | `/api/pokemon/{id_or_name}`      | Get detailed data mapped for the frontend for a specific Pokémon by ID or name.                        | `force_refresh` (bool)       | `PokemonDetail`             |
+| `GET`  | `/api/generations`               | Get a list of all Pokémon generations mapped for the frontend (incl. region, count, roman numeral).                             | `force_refresh` (bool)       | `List[Generation]`          |
+| `GET`  | `/api/types`                     | Get a list of all Pokémon types mapped for the frontend filter.                                 | `force_refresh` (bool)       | `List[PokemonTypeFilter]`   |
+| `POST` | `/api/admin/cache/refresh`       | **(Optional)** Manually trigger a refresh of this backend's cache keys (e.g., `pokedex_summary_data_v2`).            | `cache_key` (str, required)  | JSON `{message: str}`       |
 
-*(See `backend/app/main.py` and `backend/app/models.py` for detailed response models and validation.)*
-
-Backend API documentation (Swagger UI) is automatically available at `/docs` relative to the backend service URL (e.g., `http://localhost:8000/docs` if backend port 8000 is exposed directly, or via the Nginx proxy if configured).
+*(See `backend/app/main.py` and `backend/app/models.py` for response models specific to this backend API.)*
 
 ## Project Structure
 pokedex_project/
 ├── backend/
-│ ├── app/ # Core FastAPI application
+│ ├── app/ # Core FastAPI application consuming the library
 │ │ ├── init.py
-│ │ ├── cache.py # Redis caching logic
-│ │ ├── config.py # Configuration management (Pydantic Settings)
-│ │ ├── main.py # FastAPI app instance and API endpoints
-│ │ ├── models.py # Pydantic data models
-│ │ ├── pokedex_data.py # Data fetching, aggregation, processing logic
-│ │ └── pokeapi_client.py # HTTPX client for external PokeAPI calls
-│ ├── requirements.txt # Python dependencies
-│ └── .env # Environment variables (e.g., REDIS_URL) - Gitignored
+│ │ ├── clients.py # Manages httpx client used for the library
+│ │ ├── cache_utils.py # (Optional) Wrapper for backend caching
+│ │ ├── config.py # Backend configuration (Redis URL, Sprite Mode)
+│ │ ├── main.py # FastAPI app, endpoints, lifespan, middleware
+│ │ ├── models.py # Pydantic models for the frontend API response
+│ │ └── pokedex_data.py # Calls library, aggregates/maps data, caches final results
+│ ├── requirements.txt # Production dependencies (incl. published library)
+│ ├── requirements-dev.txt # Dev dependencies (incl. local editable library)
+│ └── .env # Environment variables - Gitignored
 ├── frontend/
+│ ├── assets/ # Static assets
+│ │ ├── icons/color/*.svg # Type icons
+│ │ ├── images/logo.png # Logo
+│ │ └── sprites/ # Cloned PokeAPI sprites repo (gitignored or handled separately)
 │ ├── index.html # Main HTML file
 │ ├── style.css # CSS styles
 │ ├── script.js # JavaScript logic
+│ ├── 404.html # Custom Not Found page
+│ ├── 50x.html # Custom Server Error page
 │ └── nginx.conf # Custom Nginx configuration
-├── Dockerfile.backend # Dockerfile for the Backend service
-├── Dockerfile.frontend # Dockerfile for the Nginx + Frontend service
-├── docker-compose.yml # Docker Compose / Podman Compose file
+├── Dockerfile.backend # Multi-stage Dockerfile for Backend service
+├── Dockerfile.frontend # Dockerfile for Nginx + Frontend service
+├── docker-compose.yml # Base Docker Compose file (prod-like)
+├── docker-compose.override.yml # Development overrides (volume mounts, dev commands)
+├── docker-compose.prod.yml # (Optional) Production-specific overrides
 └── README.md # This file
 
+### Assumed Sibling Directory (referenced in requirements-dev.txt and override.yml)
+../pokeapi_wrapper_lib/
 
 ## Getting Started
 
@@ -144,11 +144,12 @@ pokedex_project/
     *   Docker Compose is usually included with Docker Desktop. Standalone install: [https://docs.docker.com/compose/install/](https://docs.docker.com/compose/install/)
     *   Install Podman Compose (for Fedora/RHEL/CentOS): `sudo dnf install podman-compose`
 *   **Git:** For cloning the repository.
-*   **(Optional) Python 3.10+ and pip:** If you want to run the backend locally for development without Docker.
-*   **(Optional) Redis Client:** (`redis-cli`) for inspecting the cache directly.
-*   **Cloned Sprite Assets:** If you want to use a local copy of the Pokémon sprites, you must clone the repository into the `frontend/assets` (location is important!) directory. The repo is large (~1.5GB), so only recommended for production. You can also use the remote api instead:
+*   **(Optional Dev) Python 3.10+ and pip:** If you want to run the backend locally for development without Docker.
+*   **(Optional Dev) Redis Client:** (`redis-cli`) for inspecting the cache directly.
+*   **(Required for Dev)** Local clone of the `pokeapi_wrapper_lib` repository placed *sibling* to this `pokedex_project` directory.
+*   **(Required for Local Sprites) Cloned Sprite Assets:** If you want to use a local copy of the Pokémon sprites, you must clone the repository into the `frontend/assets` (location is important!) directory. The repo is large (~1.5GB), so only recommended for production. You can also use the remote api instead:
     ```bash
-    cd frontend # Navigate to frontend directory
+    cd pokedex_project/frontend # Navigate to frontend directory
     mkdir -p assets
     git clone https://github.com/PokeAPI/sprites.git ./assets/sprites
     cd .. # Go back to project root
@@ -159,10 +160,18 @@ pokedex_project/
 1.  **Clone the repository:**
     ```bash
     git clone https://github.com/miethe/pokedex.git
-    cd <your-repo-name>
+    cd pokedex_project
     ```
 
-2.  **Configure Environment Variables:**
+2.  **Clone the Library Repo (for Dev):** Ensure `pokeapi_wrapper_lib` is cloned in the directory *above* `pokedex_project`.
+    ```bash
+    # Example if starting from parent directory
+    git clone https://github.com/<your-username>/pokeapi_wrapper_lib.git
+    ```
+
+3.  **Clone Sprites Repo:** (See Prerequisites).
+
+4.  **Configure Environment Variables:**
     *   Copy the example environment file (if one is provided) or create `backend/.env`.
     *   Ensure the `backend/.env` file contains at least:
         ```dotenv
@@ -179,34 +188,38 @@ pokedex_project/
 
 ## Running the Application
 
-### Using Docker Compose / Podman Compose (Recommended)
+### Development (Docker Compose w/ Override)
 
-This is the easiest way to run the entire application stack (frontend, backend, Redis).
+This uses `docker-compose.override.yml` for live reloading and local code mounting.
 
-1.  **Navigate to the project root directory** (where `docker-compose.yml` is located).
+1.  **Navigate to `pokedex_project` root.**
+2.  **Run:**
+    *   `docker-compose up --build`
+    *   `podman-compose up --build`
+    *   (`-d` flag can be added to run detached).
+3.  **Access:** `http://localhost:8080`. Backend API also accessible directly at `http://localhost:8001`.
+4.  **Changes:** Python code changes in `backend` or the sibling `pokeapi_wrapper_lib` will trigger backend reload. Frontend file changes (HTML, CSS, JS, assets) are reflected on browser refresh.
 
-2.  **Build and start the services:**
-    *   Using Docker Compose:
-        ```bash
-        docker-compose up --build -d
-        ```
-    *   Using Podman Compose:
-        ```bash
-        podman-compose up --build -d
-        ```
-    *   `--build`: Forces rebuilding images if Dockerfiles or code have changed.
-    *   `-d`: Runs containers in detached mode (background).
+### Production (Docker Compose)
 
-3.  **Access the Application:** Open your web browser and navigate to `http://localhost:8080` (or `http://<your-vm-ip>:8080` if running on a VM).
+This uses the `production` stage of the Dockerfile and expects the library dependency to be correctly specified for production in `backend/requirements.txt` (e.g., from PyPI or a Git tag).
 
-4.  **View Logs:**
+1.  **Ensure `backend/requirements.txt` points to the stable library version.**
+2.  **Navigate to `pokedex_project` root.**
+3.  **Run:**
+    *   `docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d`
+    *   `podman-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d`
+    *   (The `-f docker-compose.prod.yml` is optional if the base `docker-compose.yml` is sufficient and no extra prod overrides are needed).
+4.  **Access:** `http://<your-server-ip>:8080`.
+
+5.  **View Logs:**
     *   `docker-compose logs -f` / `podman-compose logs -f` (Follow logs for all services)
     *   `docker-compose logs <service_name>` / `podman-compose logs <service_name>` (e.g., `backend`, `frontend`, `redis`)
 
-5.  **Stop the Application:**
+6.  **Stop the Application:**
     *   `docker-compose down` / `podman-compose down` (Stops and removes containers, network. Add `-v` to also remove named volumes like Redis data).
 
-6.  **Updating a Single Service (e.g., after backend code changes):**
+7.  **Updating a Single Service (e.g., after backend code changes):**
     *   `docker-compose up --build -d backend`
     *   `podman-compose up --build -d backend`
 
@@ -243,9 +256,10 @@ If you prefer to run the backend directly on your host machine for faster develo
 
 ## Cache Management
 
+*   **Dual Caching:** The `pokeapi_wrapper_lib` caches raw/semi-processed data from PokeAPI. This application's backend caches the *final aggregated/mapped* objects (`PokemonSummary`, `PokemonDetail`) it generates before sending to the frontend. Both use the same Redis instance but different key prefixes.
 *   **Cache Population:** The backend attempts to pre-populate the main Pokedex summary cache on startup if it's empty.
-*   **Cache TTL:** Data is cached with a default TTL of 24 hours (configurable in `backend/app/config.py`).
-*   **Manual Refresh:** The optional `/api/admin/cache/refresh` (POST) endpoint can be used to force-refresh specific cache keys (e.g., `pokedex_summary_data`, `pokemon_detail_pikachu`). Use tools like `curl` or Postman to send POST requests to this endpoint (see [API Endpoints](#api-endpoints)).
+*   **Cache TTL:** Data is cached with a default TTL of 24 hours (configurable in `backend/app/config.py`). Configured via `CACHE_TTL_SECONDS` (default: 30 days).
+*   **Manual Refresh:** The optional `/api/admin/cache/refresh` (POST) endpoint can be used to force-refresh specific cache keys (e.g., `pokedex_summary_data`, `pokemon_detail_pikachu`). Use tools like `curl` or Postman to send POST requests to this endpoint (see [API Endpoints](#api-endpoints)). This does *not* automatically clear the underlying library cache.
     1. `curl -X POST "http://<your-fedora-vm-ip>:8080/api/admin/cache/refresh?cache_key=pokedex_summary_data"`
     2. `curl -X POST "http://<your-fedora-vm-ip>:8080/api/admin/cache/refresh?cache_key=generations_data"`
     3. `curl -X POST "http://<your-fedora-vm-ip>:8080/api/admin/cache/refresh?cache_key=types_data"`
@@ -264,7 +278,7 @@ Contributions are welcome! If you'd like to contribute, please follow these step
 5.  **Test your changes** thoroughly. Add unit/integration tests if applicable.
 6.  **Commit your changes** (`git commit -am 'Add some feature'`).
 7.  **Push to your branch** (`git push origin feature/your-feature-name`).
-8.  **Create a new Pull Request** on GitHub, detailing your changes.
+8.  **Create a new Pull Request** on GitHub, detailing your changes. 
 
 Please ensure your pull request adheres to the following guidelines:
 
