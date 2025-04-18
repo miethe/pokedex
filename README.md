@@ -110,6 +110,7 @@ The backend provides the following endpoints, accessible via the Nginx proxy (e.
 Backend API documentation (Swagger UI) is automatically available at `/docs` relative to the backend service URL (e.g., `http://localhost:8000/docs` if backend port 8000 is exposed directly, or via the Nginx proxy if configured).
 
 ## Project Structure
+<pre>
 pokedex_project/
 ├── backend/
 │ ├── app/ # Core FastAPI application
@@ -131,6 +132,7 @@ pokedex_project/
 ├── Dockerfile.frontend # Dockerfile for the Nginx + Frontend service
 ├── docker-compose.yml # Docker Compose / Podman Compose file
 └── README.md # This file
+</pre>
 
 
 ## Getting Started
